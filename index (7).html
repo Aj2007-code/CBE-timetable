@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>CBE-3rd Sem — Live Timetable</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<div class="login-wrap" id="loginScreen">
+  <div class="login-card">
+    <div class="login-badge"><span class="num">IIT</span><span class="sym">CBE</span></div>
+    <div class="login-title">CBE · 2nd Year Schedule</div>
+    <div class="login-sub">Sign in with your roll number to view your personal timetable and attendance.</div>
+
+    <div class="login-field">
+      <label for="rollInput">Enter Your Roll No.</label>
+      <input type="text" id="rollInput" placeholder="e.g. 2501CB23" autocomplete="off" spellcheck="false" maxlength="10" />
+      <div class="login-suggest" id="rollSuggest"></div>
+    </div>
+    <div class="login-error" id="loginError">Roll number not found. Please check and try again.</div>
+    <div class="login-remember">
+      <input type="checkbox" id="rememberMe" checked />
+      <label for="rememberMe">Remember me on this device</label>
+    </div>
+    <button class="login-btn" id="loginBtn">Continue →</button>
+    <div class="login-foot">Attendance will be saved to your own profile</div>
+  </div>
+</div>
+
+<div class="wrap" id="appScreen" style="display:none;">
+
+  <div class="user-bar">
+    <div class="user-hello">Hello, <b id="helloName">Student</b><span class="roll" id="helloRoll"></span></div>
+    <button class="logout-btn" id="logoutBtn">Switch user</button>
+  </div>
+
+  <div class="topbar">
+    <div class="brand">
+      <div class="brand-tile"><span class="num">IIT</span><span class="sym">CBE</span></div>
+      <div class="brand-text">
+        <div class="brand-name">2nd Year Schedule</div>
+        <div class="brand-sub">Dept-CBE</div>
+      </div>
+    </div>
+    <div class="clock">
+      <div class="time"><span class="live-dot"></span><span id="clockTime">--:--:--</span></div>
+      <div class="date" id="clockDate">—</div>
+    </div>
+  </div>
+
+
+  <div class="hero" id="hero">
+    <svg class="hero-ring" viewBox="0 0 100 100"><g stroke="#2dd9c4" stroke-width="1.4" fill="none" opacity="0.5">
+      <polygon points="50,10 84,30 84,70 50,90 16,70 16,30"/>
+      <circle cx="50" cy="50" r="26"/>
+    </g></svg>
+    <div class="hero-eyebrow"><span class="live-dot"></span> Live · Next Class</div>
+    <div id="heroContent"></div>
+    <div class="burette" id="burette" style="display:none;">
+      <div class="burette-fill" id="buretteFill"></div>
+      <div class="burette-marks" id="buretteMarks"></div>
+    </div>
+  </div>
+
+  <div class="tabs">
+    <button class="tab-btn active" data-view="now">Now</button>
+    <button class="tab-btn" data-view="week">Week</button>
+    <button class="tab-btn" data-view="attendance">Attendance</button>
+  </div>
+
+  <div class="view active" id="view-now">
+    <div class="day-row" id="dayRow"></div>
+    <div id="nowTimelineWrap"></div>
+  </div>
+
+  <div class="view" id="view-week">
+    <div class="week-grid" id="weekGrid"></div>
+  </div>
+
+  <div class="view" id="view-attendance">
+    <div class="overall-bar" id="overallBar"></div>
+    <div class="stat-grid" id="statGrid"></div>
+    <div class="section-label">Mark a day</div>
+    <div class="date-nav">
+      <button id="prevDate" aria-label="Previous day">‹</button>
+      <div class="lbl" id="dateLabel"></div>
+      <button id="nextDate" aria-label="Next day">›</button>
+    </div>
+    <div style="text-align:center; margin-bottom:14px;">
+      <button class="today-jump" id="jumpToday">Jump to today</button>
+    </div>
+    <div id="attendanceDayWrap"></div>
+  </div>
+
+  <footer>
+      Present ✓ · Absent ✕ · Cancelled ⊘<br>
+    <b>Attendance is saved to your personal profile</b> — tap the ✎ next to a course to rename it for yourself.
+  </footer>
+
+</div>
+
+<div class="save-toast" id="saveToast">Saved</div>
+
+<script src="script.js"></script>
+</body>
+</html>
