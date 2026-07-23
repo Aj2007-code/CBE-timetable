@@ -35,7 +35,65 @@
 
   const COURSE_CODES = [...new Set(SCHEDULE.map(s=>s.code))].sort();
 
-  let usingRemote = !!(window.storage);
+  // ---------------------------------------------------------------------
+  // Storage adapter
+  // ---------------------------------------------------------------------
+  // This app needs to work in two very different environments:
+  //  1) Inside Claude's own Artifact panel, where `window.storage` exists
+  //     and can sync data across whoever has the artifact open.
+  //  2) Hosted as plain static files anywhere else (GitHub Pages, Vercel,
+  //     opened directly from disk, etc.) where `window.storage` does not
+  //     exist at all.
+  // `Store` below gives every part of the app one consistent async API
+  // (get/set/delete) no matter which environment it's running in, so the
+  // rest of the code never has to special-case "is storage available?".
+  // When `window.storage` isn't present, it transparently falls back to
+  // the browser's own localStorage, so data still saves and survives a
+  // refresh on that device/browser.
+  const Store = (function(){
+    const hasRemote = !!(window.storage && typeof window.storage.get === 'function');
+    const NS = 'cbe-timetable:';
+
+    function lsRead(key){
+      try{
+        const raw = localStorage.getItem(NS + key);
+        return raw === null ? null : { key, value: raw };
+      }catch(e){ return null; }
+    }
+    function lsWrite(key, value){
+      try{ localStorage.setItem(NS + key, value); return { key, value }; }
+      catch(e){ return null; }
+    }
+    function lsRemove(key){
+      try{ localStorage.removeItem(NS + key); return { key, deleted:true }; }
+      catch(e){ return null; }
+    }
+
+    return {
+      isRemote: hasRemote,
+      async get(key, shared){
+        if(hasRemote){
+          try{ return await window.storage.get(key, shared); }
+          catch(e){ return null; }
+        }
+        return lsRead(key);
+      },
+      async set(key, value, shared){
+        if(hasRemote){
+          try{ return await window.storage.set(key, value, shared); }
+          catch(e){ return null; }
+        }
+        return lsWrite(key, value);
+      },
+      async delete(key, shared){
+        if(hasRemote){
+          try{ return await window.storage.delete(key, shared); }
+          catch(e){ return null; }
+        }
+        return lsRemove(key);
+      }
+    };
+  })();
 
   let attendance = {};
   let courseNames = {};
@@ -86,14 +144,10 @@
       return;
     }
     currentUser = { roll, name };
-    if(usingRemote && rememberMe.checked){
-      try{ await window.storage.set('remembered-roll', roll, false); }catch(e){}
-    }
-    if(usingRemote){
-      try{ await window.storage.delete('remembered-roll', false); }catch(e){}
-      if(rememberMe.checked){
-        try{ await window.storage.set('remembered-roll', roll, false); }catch(e){}
-      }
+    if(rememberMe.checked){
+      await Store.set('remembered-roll', roll, false);
+    } else {
+      await Store.delete('remembered-roll', false);
     }
     await enterApp();
   }
@@ -103,9 +157,7 @@
   document.getElementById('logoutBtn').addEventListener('click', async ()=>{
     currentUser = null;
     attendance = {};
-    if(usingRemote){
-      try{ await window.storage.delete('remembered-roll', false); }catch(e){}
-    }
+    await Store.delete('remembered-roll', false);
     appScreen.style.display = 'none';
     loginScreen.style.display = 'flex';
     rollInput.value = '';
@@ -114,14 +166,13 @@
   });
 
   async function tryAutoLogin(){
-    if(!usingRemote){ document.getElementById('storageBanner').style.display = 'block'; return; }
     try{
-      const r = await window.storage.get('remembered-roll', false);
+      const r = await Store.get('remembered-roll', false);
       if(r && r.value && STUDENT_MAP[r.value.toUpperCase()]){
         currentUser = { roll: r.value.toUpperCase(), name: STUDENT_MAP[r.value.toUpperCase()] };
         await enterApp();
       }
-    }catch(e){ /* no remembered roll yet */ }
+    }catch(e){ /* no remembered roll yet — fine, just show the login screen */ }
   }
 
   async function enterApp(){
@@ -138,13 +189,12 @@
   async function loadUserData(){
     attendance = {};
     courseNames = {};
-    if(!usingRemote) return;
     try{
-      const a = await window.storage.get(attKey(), true);
+      const a = await Store.get(attKey(), true);
       if(a && a.value) attendance = JSON.parse(a.value);
     }catch(e){ /* no records yet for this student — fine */ }
     try{
-      const n = await window.storage.get('course-names', true);
+      const n = await Store.get('course-names', true);
       if(n && n.value) courseNames = JSON.parse(n.value);
     }catch(e){ /* no custom names yet — fine */ }
   }
@@ -160,17 +210,19 @@
   }
 
   async function persistAttendance(){
-    if(!usingRemote || !currentUser){ flashSaveToast(false, 'Not saved — offline session'); return; }
+    if(!currentUser){ flashSaveToast(false, 'Not saved — no user'); return; }
     try{
-      const res = await window.storage.set(attKey(), JSON.stringify(attendance), true);
-      if(res) flashSaveToast(true); else flashSaveToast(false);
+      const res = await Store.set(attKey(), JSON.stringify(attendance), true);
+      if(res) flashSaveToast(true); else flashSaveToast(false, 'Save failed — storage unavailable');
     }
     catch(e){ console.warn("save failed", e); flashSaveToast(false); }
   }
   async function persistNames(){
-    if(!usingRemote) return;
-    try{ await window.storage.set('course-names', JSON.stringify(courseNames), true); }
-    catch(e){ console.warn("save failed", e); }
+    try{
+      const res = await Store.set('course-names', JSON.stringify(courseNames), true);
+      if(!res) flashSaveToast(false, 'Save failed — storage unavailable');
+    }
+    catch(e){ console.warn("save failed", e); flashSaveToast(false); }
   }
 
   function courseLabel(code){ return courseNames[code] || code; }

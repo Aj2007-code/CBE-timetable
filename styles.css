@@ -158,10 +158,6 @@
     100%{box-shadow:0 0 0 0 rgba(45,217,196,0);}
   }
 
-  .storage-banner{
-    font-family:var(--mono); font-size:11px; color:var(--amber); background:var(--amber-dim);
-    border:1px solid #7a5a1a; border-radius:9px; padding:8px 12px; margin-bottom:14px; display:none;
-  }
   .save-toast{
     position:fixed; bottom:20px; left:50%; transform:translateX(-50%) translateY(20px);
     background:var(--surface-3); border:1px solid var(--teal); color:var(--teal); font-family:var(--mono);
