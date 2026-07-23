@@ -38,6 +38,8 @@
     <button class="logout-btn" id="logoutBtn">Switch user</button>
   </div>
 
+  <div class="storage-banner" id="storageBanner" style="display:none;"></div>
+
   <div class="topbar">
     <div class="brand">
       <div class="brand-tile"><span class="num">IIT</span><span class="sym">CBE</span></div>
@@ -94,6 +96,17 @@
       <button class="today-jump" id="jumpToday">Jump to today</button>
     </div>
     <div id="attendanceDayWrap"></div>
+
+    <div class="section-label">Backup your data</div>
+    <div class="backup-box">
+      <div class="backup-text">This is saved to your browser only. Clearing browser data, going private/incognito, or opening the site on a different phone or laptop will not have it — download a backup regularly, it takes two seconds.</div>
+      <div class="backup-actions">
+        <button class="backup-btn" id="exportBtn">⬇ Export backup</button>
+        <button class="backup-btn ghost" id="importBtn">⬆ Restore backup</button>
+        <input type="file" id="importFile" accept="application/json" style="display:none;" />
+      </div>
+      <div class="backup-meta" id="backupMeta"></div>
+    </div>
   </div>
 
   <footer>

@@ -182,7 +182,107 @@
     document.getElementById('helloRoll').textContent = currentUser.roll;
     await loadUserData();
     renderAll();
+    updateStorageBanner();
+    updateBackupMeta();
   }
+
+  // ---------------------------------------------------------------------
+  // Backup / restore
+  // ---------------------------------------------------------------------
+  // Store.isRemote is false whenever this is running outside Claude's own
+  // Artifact panel (i.e. hosted normally, which is how this app is meant
+  // to be used) — in that mode everything lives in this browser's
+  // localStorage only. That's fine day-to-day, but over a 4-month semester
+  // a cleared cache, a new device, or reinstalling the browser would wipe
+  // it. These export/import helpers let a student keep their own copy and
+  // move it between devices/browsers whenever they want.
+  function updateStorageBanner(){
+    const banner = document.getElementById('storageBanner');
+    if(!banner) return;
+    if(Store.isRemote){ banner.style.display = 'none'; return; }
+    banner.style.display = 'flex';
+    banner.innerHTML = `⚠️ Saved to this browser only — clearing browser data or switching device/browser will lose it. <b>Back up from the Attendance tab.</b>`;
+  }
+
+  async function updateBackupMeta(){
+    const el = document.getElementById('backupMeta');
+    if(!el) return;
+    let last = null;
+    try{
+      const r = await Store.get('last-backup-at', true);
+      if(r && r.value) last = r.value;
+    }catch(e){ /* no backup taken yet — fine */ }
+    if(last){
+      const days = Math.floor((Date.now() - new Date(last).getTime()) / 86400000);
+      el.textContent = days<=0 ? 'Last backup: today' : `Last backup: ${days} day${days!==1?'s':''} ago`;
+      el.className = 'backup-meta' + (days>=14 ? ' due' : '');
+    } else {
+      el.textContent = 'No backup yet — make one now, it only takes a second.';
+      el.className = 'backup-meta due';
+    }
+  }
+
+  function downloadJSON(filename, obj){
+    const blob = new Blob([JSON.stringify(obj, null, 2)], { type:'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  async function exportBackup(){
+    if(!currentUser) return;
+    const payload = {
+      app: 'cbe-timetable-backup',
+      version: 1,
+      roll: currentUser.roll,
+      name: currentUser.name,
+      exportedAt: new Date().toISOString(),
+      attendance,
+      courseNames
+    };
+    downloadJSON(`cbe-attendance-${currentUser.roll}-${isoDate(new Date())}.json`, payload);
+    try{ await Store.set('last-backup-at', new Date().toISOString(), true); }catch(e){}
+    updateBackupMeta();
+    flashSaveToast(true, 'Backup downloaded');
+  }
+
+  async function importBackupFile(file){
+    let data;
+    try{
+      data = JSON.parse(await file.text());
+    }catch(e){
+      alert("That file doesn't look like a valid backup (couldn't read it as JSON).");
+      return;
+    }
+    if(!data || typeof data.attendance !== 'object'){
+      alert("That file doesn't look like a valid backup.");
+      return;
+    }
+    if(data.roll && data.roll.toUpperCase() !== currentUser.roll){
+      const proceed = confirm(`This backup was made for roll number ${data.roll}, but you're signed in as ${currentUser.roll}. Import into your account anyway?`);
+      if(!proceed) return;
+    }
+    const proceed2 = confirm('This will merge the backup into your current attendance (the backup file wins if a session is marked differently in both). Continue?');
+    if(!proceed2) return;
+    attendance = Object.assign({}, attendance, data.attendance || {});
+    if(data.courseNames) courseNames = Object.assign({}, courseNames, data.courseNames);
+    await persistAttendance();
+    await persistNames();
+    renderAll();
+    flashSaveToast(true, 'Backup restored');
+  }
+
+  document.getElementById('exportBtn').addEventListener('click', exportBackup);
+  document.getElementById('importBtn').addEventListener('click', ()=>{
+    document.getElementById('importFile').click();
+  });
+  document.getElementById('importFile').addEventListener('change', (e)=>{
+    const file = e.target.files[0];
+    if(file) importBackupFile(file);
+    e.target.value = '';
+  });
 
   function attKey(){ return 'attendance:' + currentUser.roll; }
 
@@ -535,6 +635,7 @@
     });
 
     renderAttendanceDay();
+    updateBackupMeta();
   }
 
   function renderAttendanceDay(){
