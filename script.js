@@ -35,23 +35,12 @@
 
   const COURSE_CODES = [...new Set(SCHEDULE.map(s=>s.code))].sort();
 
-  // ---------------------------------------------------------------------
-  // Storage adapter
-  // ---------------------------------------------------------------------
-  // This app needs to work in two very different environments:
-  //  1) Inside Claude's own Artifact panel, where `window.storage` exists
-  //     and can sync data across whoever has the artifact open.
-  //  2) Hosted as plain static files anywhere else (GitHub Pages, Vercel,
-  //     opened directly from disk, etc.) where `window.storage` does not
-  //     exist at all.
-  // `Store` below gives every part of the app one consistent async API
-  // (get/set/delete) no matter which environment it's running in, so the
-  // rest of the code never has to special-case "is storage available?".
-  // When `window.storage` isn't present, it transparently falls back to
-  // the browser's own localStorage, so data still saves and survives a
-  // refresh on that device/browser.
+  const SUPABASE_URL = "https://cqzltvyubqbyaddufgcd.supabase.co";        
+  const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNxemx0dnl1YnFieWFkZHVmZ2NkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ3ODY3OTEsImV4cCI6MjEwMDM2Mjc5MX0.T6HRG54lKQR49jGic_urA-s3y1mu38wXRcA6rGNK04I";   // the "anon public" API key
+
   const Store = (function(){
     const hasRemote = !!(window.storage && typeof window.storage.get === 'function');
+    const hasSupabase = !!(SUPABASE_URL && SUPABASE_ANON_KEY);
     const NS = 'cbe-timetable:';
 
     function lsRead(key){
@@ -69,28 +58,91 @@
       catch(e){ return null; }
     }
 
+    function sbHeaders(){
+      return {
+        'apikey': SUPABASE_ANON_KEY,
+        'Authorization': 'Bearer ' + SUPABASE_ANON_KEY,
+        'Content-Type': 'application/json'
+      };
+    }
+    async function sbGetAttendance(roll){
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/cbe_attendance?roll=eq.${encodeURIComponent(roll)}&select=attendance`, { headers: sbHeaders() });
+      if(!res.ok) throw new Error('supabase get failed: ' + res.status);
+      const rows = await res.json();
+      return rows[0] ? JSON.stringify(rows[0].attendance || {}) : null;
+    }
+    async function sbSetAttendance(roll, name, valueStr){
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/cbe_attendance`, {
+        method: 'POST',
+        headers: Object.assign(sbHeaders(), { Prefer: 'resolution=merge-duplicates' }),
+        body: JSON.stringify([{ roll, name, attendance: JSON.parse(valueStr), updated_at: new Date().toISOString() }])
+      });
+      if(!res.ok) throw new Error('supabase set failed: ' + res.status);
+    }
+    async function sbGetCourseNames(){
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/cbe_course_names?id=eq.1&select=names`, { headers: sbHeaders() });
+      if(!res.ok) throw new Error('supabase get failed: ' + res.status);
+      const rows = await res.json();
+      return rows[0] ? JSON.stringify(rows[0].names || {}) : null;
+    }
+    async function sbSetCourseNames(valueStr){
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/cbe_course_names`, {
+        method: 'POST',
+        headers: Object.assign(sbHeaders(), { Prefer: 'resolution=merge-duplicates' }),
+        body: JSON.stringify([{ id: 1, names: JSON.parse(valueStr), updated_at: new Date().toISOString() }])
+      });
+      if(!res.ok) throw new Error('supabase set failed: ' + res.status);
+    }
+
     return {
       isRemote: hasRemote,
+      isCloud: hasRemote || hasSupabase,
       async get(key, shared){
         if(hasRemote){
           try{ return await window.storage.get(key, shared); }
           catch(e){ return null; }
         }
+        if(hasSupabase){
+          if(key.indexOf('attendance:') === 0 || key === 'course-names'){
+            try{
+              const raw = key.indexOf('attendance:') === 0
+                ? await sbGetAttendance(key.slice('attendance:'.length))
+                : await sbGetCourseNames();
+              if(raw !== null) lsWrite(key, raw); // cache for instant load / offline
+              return raw === null ? lsRead(key) : { key, value: raw };
+            }catch(e){
+              console.warn('Supabase unreachable, using local cache', e);
+              return lsRead(key);
+            }
+          }
+        }
         return lsRead(key);
       },
       async set(key, value, shared){
+        lsWrite(key, value); // always cache locally first — nothing is lost to a flaky connection
         if(hasRemote){
-          try{ return await window.storage.set(key, value, shared); }
-          catch(e){ return null; }
+          try{ const r = await window.storage.set(key, value, shared); return r ? { key, value, synced:true } : { key, value, synced:false }; }
+          catch(e){ return { key, value, synced:false }; }
         }
-        return lsWrite(key, value);
+        if(hasSupabase && (key.indexOf('attendance:') === 0 || key === 'course-names')){
+          try{
+            if(key.indexOf('attendance:') === 0) await sbSetAttendance(key.slice('attendance:'.length), currentUser ? currentUser.name : '', value);
+            else await sbSetCourseNames(value);
+            return { key, value, synced:true };
+          }catch(e){
+            console.warn('Supabase save failed, kept in local cache only', e);
+            return { key, value, synced:false };
+          }
+        }
+        return { key, value, synced:true };
       },
       async delete(key, shared){
+        lsRemove(key);
         if(hasRemote){
           try{ return await window.storage.delete(key, shared); }
           catch(e){ return null; }
         }
-        return lsRemove(key);
+        return { key, deleted:true };
       }
     };
   })();
@@ -183,25 +235,29 @@
     await loadUserData();
     renderAll();
     updateStorageBanner();
+    updateBackupCopy();
     updateBackupMeta();
   }
 
-  // ---------------------------------------------------------------------
-  // Backup / restore
-  // ---------------------------------------------------------------------
-  // Store.isRemote is false whenever this is running outside Claude's own
-  // Artifact panel (i.e. hosted normally, which is how this app is meant
-  // to be used) — in that mode everything lives in this browser's
-  // localStorage only. That's fine day-to-day, but over a 4-month semester
-  // a cleared cache, a new device, or reinstalling the browser would wipe
-  // it. These export/import helpers let a student keep their own copy and
-  // move it between devices/browsers whenever they want.
   function updateStorageBanner(){
     const banner = document.getElementById('storageBanner');
+    const badge = document.getElementById('syncBadge');
+    if(badge){
+      if(Store.isCloud){ badge.textContent = '☁ Synced'; badge.className = 'sync-badge cloud'; }
+      else{ badge.textContent = '💾 Local only'; badge.className = 'sync-badge local'; }
+    }
     if(!banner) return;
-    if(Store.isRemote){ banner.style.display = 'none'; return; }
+    if(Store.isCloud){ banner.style.display = 'none'; return; }
     banner.style.display = 'flex';
     banner.innerHTML = `⚠️ Saved to this browser only — clearing browser data or switching device/browser will lose it. <b>Back up from the Attendance tab.</b>`;
+  }
+
+  function updateBackupCopy(){
+    const el = document.querySelector('.backup-text');
+    if(!el) return;
+    el.textContent = Store.isCloud
+      ? 'Your attendance syncs to the cloud automatically, so it follows you across devices. This export is just an extra personal copy.'
+      : "This is saved to your browser only. Clearing browser data, going private/incognito, or opening the site on a different phone or laptop will not have it — download a backup regularly, it takes two seconds.";
   }
 
   async function updateBackupMeta(){
@@ -313,7 +369,9 @@
     if(!currentUser){ flashSaveToast(false, 'Not saved — no user'); return; }
     try{
       const res = await Store.set(attKey(), JSON.stringify(attendance), true);
-      if(res) flashSaveToast(true); else flashSaveToast(false, 'Save failed — storage unavailable');
+      if(!res) flashSaveToast(false, 'Save failed — storage unavailable');
+      else if(res.synced === false) flashSaveToast(true, 'Saved locally — will sync when online');
+      else flashSaveToast(true);
     }
     catch(e){ console.warn("save failed", e); flashSaveToast(false); }
   }
@@ -321,6 +379,7 @@
     try{
       const res = await Store.set('course-names', JSON.stringify(courseNames), true);
       if(!res) flashSaveToast(false, 'Save failed — storage unavailable');
+      else if(res.synced === false) flashSaveToast(true, 'Saved locally — will sync when online');
     }
     catch(e){ console.warn("save failed", e); flashSaveToast(false); }
   }

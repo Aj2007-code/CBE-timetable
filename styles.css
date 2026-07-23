@@ -120,6 +120,12 @@
   .user-hello{font-size:14.5px;}
   .user-hello b{color:var(--teal);}
   .user-hello .roll{display:block; font-family:var(--mono); font-size:10.5px; color:var(--text-faint); margin-top:2px;}
+  .sync-badge{
+    display:inline-block; margin-top:6px; font-family:var(--mono); font-size:10px; padding:3px 8px;
+    border-radius:20px; border:1px solid var(--border);
+  }
+  .sync-badge.cloud{color:var(--green); border-color:var(--green-dim); background:var(--green-dim);}
+  .sync-badge.local{color:var(--amber); border-color:var(--amber-dim); background:var(--amber-dim);}
   .logout-btn{
     background:var(--surface-2); border:1px solid var(--border); color:var(--text-dim); font-family:var(--mono);
     font-size:11px; padding:7px 12px; border-radius:9px; cursor:pointer; flex-shrink:0;
