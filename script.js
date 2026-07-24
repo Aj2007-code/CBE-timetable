@@ -10,11 +10,6 @@
 
   function tm(h,m){ return h*60+m; }
 
-  // Source: official department timetable PDF (Time_Table_Autumn_2026.pdf),
-  // extracted programmatically with pdfplumber (not read off a screenshot),
-  // so room/code/time values below are taken verbatim from the document's
-  // own table cells. "(R105)"/"(R106)" in the PDF means that session is
-  // temporarily relocated out of R-102 — reflected in the room field.
   const SCHEDULE = [
     // Monday
     { day:1, start:tm(16,0), end:tm(16,55), code:"CB2102", type:"lecture", room:"R102" },
@@ -44,7 +39,6 @@
 
   const COURSE_CODES = [...new Set(SCHEDULE.map(s=>s.code))].sort();
 
-  // Official course names — as given by the department.
   const COURSE_NAMES = {
     CB2101: "Introduction to Chemical Engineering",
     CB2102: "Fluid Mechanics",
@@ -56,13 +50,6 @@
     HS2112: "Introduction to Demography",
   };
 
-  // ---------------------------------------------------------------------
-  // HSS electives — from the dept's slot-reservation sheet. Every HSS
-  // elective runs 2–3 PM across three of the week's days, in a fixed
-  // room per day. Each student is enrolled in exactly one of these; the
-  // chosen one gets merged into SCHEDULE below into that student's own
-  // personal timetable.
-  // ---------------------------------------------------------------------
   const HSS_START = tm(14,0), HSS_END = tm(15,0);
   const HSS_ELECTIVES = [
     { code:"HS2110", slot:6,  sessions:[{day:3,room:"LT103"},{day:4,room:"LT103"},{day:5,room:"LT103"}] }, // Wed/Thu/Fri
@@ -72,7 +59,7 @@
   const HSS_MAP = {};
   HSS_ELECTIVES.forEach(h => HSS_MAP[h.code] = h);
 
-  let hssCode = null; // null = not chosen yet, "" = explicitly skipped, else one of HS21xx
+  let hssCode = null; 
   let PERSONAL_SCHEDULE = SCHEDULE.slice();
 
   function rebuildPersonalSchedule(){
@@ -88,68 +75,9 @@
   function activeCourseCodes(){
     return hssCode && HSS_MAP[hssCode] ? COURSE_CODES.concat([hssCode]) : COURSE_CODES;
   }
-
-  // ---------------------------------------------------------------------
-  // Cloud config — fill these in to make attendance sync across every
-  // device/browser for every student, instead of living in one browser's
-  // localStorage. Free tier is plenty for a class.
-  //
-  //   1) Create a project at https://supabase.com
-  //   2) In the SQL editor, run:
-  //
-  //        create table cbe_attendance (
-  //          roll text primary key,
-  //          name text,
-  //          attendance jsonb not null default '{}'::jsonb,
-  //          updated_at timestamptz not null default now()
-  //        );
-  //        create table cbe_course_names (
-  //          id int primary key default 1,
-  //          names jsonb not null default '{}'::jsonb,
-  //          updated_at timestamptz not null default now()
-  //        );
-  //        create table cbe_hss (
-  //          roll text primary key,
-  //          code text not null default '',
-  //          updated_at timestamptz not null default now()
-  //        );
-  //        alter table cbe_attendance enable row level security;
-  //        alter table cbe_course_names enable row level security;
-  //        alter table cbe_hss enable row level security;
-  //        create policy "anon full access" on cbe_attendance
-  //          for all using (true) with check (true);
-  //        create policy "anon full access" on cbe_course_names
-  //          for all using (true) with check (true);
-  //        create policy "anon full access" on cbe_hss
-  //          for all using (true) with check (true);
-  //
-  //      NOTE: login here is just a roll number, not a password, so this
-  //      policy lets anyone with the anon key read/write any row — same
-  //      trust model as a shared spreadsheet. Fine for a class attendance
-  //      sheet; don't reuse this pattern for anything sensitive.
-  //   3) Project Settings → API → copy "Project URL" and the "anon public"
-  //      key into the two constants below.
-  // ---------------------------------------------------------------------
-  const SUPABASE_URL = "";        // e.g. "https://abcdefgh.supabase.co"
-  const SUPABASE_ANON_KEY = "";   // the "anon public" API key
-
-  // ---------------------------------------------------------------------
-  // Storage adapter
-  // ---------------------------------------------------------------------
-  // This app needs to work in a few different environments, checked in
-  // this order:
-  //  1) Inside Claude's own Artifact panel, where `window.storage` exists
-  //     and syncs data across whoever has the artifact open.
-  //  2) Hosted anywhere else (GitHub Pages, Vercel, etc.) with Supabase
-  //     configured above — attendance and course-name renames sync to
-  //     the cloud, so any student sees the same data on any device.
-  //  3) Neither of the above — falls back to plain localStorage, which
-  //     only survives on that one browser/device.
-  // In every case, a local copy is also kept in localStorage so the app
-  // loads instantly and still works offline; cloud writes happen in the
-  // background and don't block the UI.
-  // `Store` gives the rest of the app one consistent async API
-  // (get/set/delete) no matter which tier is actually active.
+  
+  const SUPABASE_URL = "https://ektzrezmwzhautdmbrwf.supabase.co";       
+  const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVrdHpyZXptd3poYXV0ZG1icndmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ4OTY1MzksImV4cCI6MjEwMDQ3MjUzOX0.IoVDIWNNqMzFFZUk_C2LV8Wm-cxBs3OM6Cp5bP2GTr4";  
   const Store = (function(){
     const hasRemote = !!(window.storage && typeof window.storage.get === 'function');
     const hasSupabase = !!(SUPABASE_URL && SUPABASE_ANON_KEY);
@@ -177,11 +105,7 @@
         'Content-Type': 'application/json'
       };
     }
-    // Our simple key/value model maps onto two small tables:
-    //   'attendance:<ROLL>' -> one row per student in cbe_attendance
-    //   'course-names'      -> a single shared row (id=1) in cbe_course_names
-    // Anything else (remembered-roll, last-backup-at) is device-local only
-    // and never leaves localStorage — there's no benefit to syncing it.
+    
     async function sbGetAttendance(roll){
       const res = await fetch(`${SUPABASE_URL}/rest/v1/cbe_attendance?roll=eq.${encodeURIComponent(roll)}&select=attendance`, { headers: sbHeaders() });
       if(!res.ok) throw new Error('supabase get failed: ' + res.status);
@@ -227,8 +151,6 @@
 
     return {
       isRemote: hasRemote,
-      // True whenever data actually leaves this one browser — used to
-      // decide whether to show the "local only" warning banner.
       isCloud: hasRemote || hasSupabase,
       async get(key, shared){
         if(hasRemote){
@@ -243,7 +165,7 @@
                 : key.indexOf('hss:') === 0
                 ? await sbGetHss(key.slice('hss:'.length))
                 : await sbGetCourseNames();
-              if(raw !== null) lsWrite(key, raw); // cache for instant load / offline
+              if(raw !== null) lsWrite(key, raw); 
               return raw === null ? lsRead(key) : { key, value: raw };
             }catch(e){
               console.warn('Supabase unreachable, using local cache', e);
@@ -254,7 +176,7 @@
         return lsRead(key);
       },
       async set(key, value, shared){
-        lsWrite(key, value); // always cache locally first — nothing is lost to a flaky connection
+        lsWrite(key, value); 
         if(hasRemote){
           try{ const r = await window.storage.set(key, value, shared); return r ? { key, value, synced:true } : { key, value, synced:false }; }
           catch(e){ return { key, value, synced:false }; }
@@ -375,12 +297,9 @@
     updateBackupCopy();
     updateBackupMeta();
     updateHssButton();
-    if(hssCode === null) openHssModal(); // never chosen (nor explicitly skipped) — ask once
+    if(hssCode === null) openHssModal(); 
   }
 
-  // ---------------------------------------------------------------------
-  // HSS elective picker
-  // ---------------------------------------------------------------------
   const hssOverlay = document.getElementById('hssModalOverlay');
   const hssOptionsWrap = document.getElementById('hssOptions');
   const DAY_FULL = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
@@ -432,16 +351,6 @@
   });
   hssOverlay.addEventListener('click', (e)=>{ if(e.target === hssOverlay) closeHssModal(); });
 
-  // ---------------------------------------------------------------------
-  // Backup / restore
-  // ---------------------------------------------------------------------
-  // Store.isRemote is false whenever this is running outside Claude's own
-  // Artifact panel (i.e. hosted normally, which is how this app is meant
-  // to be used) — in that mode everything lives in this browser's
-  // localStorage only. That's fine day-to-day, but over a 4-month semester
-  // a cleared cache, a new device, or reinstalling the browser would wipe
-  // it. These export/import helpers let a student keep their own copy and
-  // move it between devices/browsers whenever they want.
   function updateStorageBanner(){
     const banner = document.getElementById('storageBanner');
     if(!banner) return;
@@ -450,14 +359,7 @@
     banner.innerHTML = `⚠️ Saved to this browser only — clearing browser data or switching device/browser will lose it. <b>Back up from the Attendance tab.</b>`;
   }
 
-  // Real per-save confirmation, not just "is the cloud configured". Every
-  // persistAttendance()/persistNames() call reports here whether that
-  // specific write actually reached Supabase (synced:true) or only made
-  // it as far as this browser's local cache (synced:false). The badge
-  // shows the outcome of the *last* save and how long ago it happened —
-  // so if it's stuck on an old timestamp or shows the warning state,
-  // something's actually wrong, rather than you having to take it on faith.
-  let lastSyncOk = null;   // null = no save attempted yet this session
+  let lastSyncOk = null;   
   let lastSyncAt = null;
 
   function timeAgoShort(d){
@@ -582,12 +484,6 @@
 
   function attKey(){ return 'attendance:' + currentUser.roll; }
 
-  // One-time migration: the department renumbered courses from CB22XX to
-  // CB21XX (same last two digits, just the prefix changed). Attendance
-  // marks are keyed as "date|code|start", so without this they'd stay
-  // filed under the old code and silently drop out of this semester's
-  // stats/history the moment SCHEDULE switched to the new codes. This
-  // renames any old-code entries in place, once, and re-saves.
   const CODE_MIGRATION = { "CB2201":"CB2101", "CB2202":"CB2102", "CB2203":"CB2103", "CB2204":"CB2104", "CB2205":"CB2105" };
 
   function migrateOldCodes(){
@@ -607,7 +503,6 @@
     Object.keys(courseNames).forEach(code=>{
       const newCode = CODE_MIGRATION[code] || code;
       if(newCode !== code) changed = true;
-      // Don't clobber a name already set for the new code.
       if(!(newCode in migratedNames)) migratedNames[newCode] = courseNames[code];
     });
     courseNames = migratedNames;
@@ -631,7 +526,7 @@
     }catch(e){ /* no custom names yet — fine */ }
     try{
       const h = await Store.get(hssKey(), true);
-      if(h && typeof h.value === 'string') hssCode = h.value; // "" = explicitly skipped
+      if(h && typeof h.value === 'string') hssCode = h.value; 
     }catch(e){ /* never chosen yet — fine, stays null */ }
     rebuildPersonalSchedule();
     if(migrateOldCodes()){
@@ -684,7 +579,6 @@
   function courseLabel(code){ return COURSE_NAMES[code] || courseNames[code] || code; }
   function tileCode(code){ return code.replace(/^CB|^HS/, ''); }
 
-  // Every place a course appears shows its CODE plus its official NAME.
   function nameSpan(code, cls){
     return `<span class="${cls}">${courseLabel(code)}</span>`;
   }
