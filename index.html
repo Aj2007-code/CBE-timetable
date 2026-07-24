@@ -35,7 +35,10 @@
 
   <div class="user-bar">
     <div class="user-hello">Hello, <b id="helloName">Student</b><span class="roll" id="helloRoll"></span><span class="sync-badge" id="syncBadge"></span></div>
-    <button class="logout-btn" id="logoutBtn">Switch user</button>
+    <div class="user-bar-actions">
+      <button class="hss-btn" id="hssBtn">HSS: <span id="hssBtnLabel">not set</span></button>
+      <button class="logout-btn" id="logoutBtn">Switch user</button>
+    </div>
   </div>
 
   <div class="storage-banner" id="storageBanner" style="display:none;"></div>
@@ -117,6 +120,15 @@
 </div>
 
 <div class="save-toast" id="saveToast">Saved</div>
+
+<div class="modal-overlay" id="hssModalOverlay" style="display:none;">
+  <div class="modal-card">
+    <div class="modal-title">Which HSS elective are you taking?</div>
+    <div class="modal-sub">This adds your elective's 2–3 PM session to your personal timetable and attendance tracker. You can change this anytime from the "HSS" button.</div>
+    <div class="hss-options" id="hssOptions"></div>
+    <button class="modal-skip" id="hssSkipBtn">Skip for now</button>
+  </div>
+</div>
 
 <script src="script.js"></script>
 </body>

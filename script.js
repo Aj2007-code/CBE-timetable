@@ -45,6 +45,39 @@
   const COURSE_CODES = [...new Set(SCHEDULE.map(s=>s.code))].sort();
 
   // ---------------------------------------------------------------------
+  // HSS electives — from the dept's slot-reservation sheet. Every HSS
+  // elective runs 2–3 PM across three of the week's days, in a fixed
+  // room per day. Each student is enrolled in exactly one of these; the
+  // chosen one gets merged into SCHEDULE below into that student's own
+  // personal timetable.
+  // ---------------------------------------------------------------------
+  const HSS_START = tm(14,0), HSS_END = tm(15,0);
+  const HSS_ELECTIVES = [
+    { code:"HS2110", slot:6,  sessions:[{day:3,room:"LT103"},{day:4,room:"LT103"},{day:5,room:"LT103"}] }, // Wed/Thu/Fri
+    { code:"HS2111", slot:32, sessions:[{day:2,room:"LT001"},{day:3,room:"LT001"},{day:4,room:"LT001"}] }, // Tue/Wed/Thu
+    { code:"HS2112", slot:1,  sessions:[{day:2,room:"LT103"},{day:3,room:"LT003"},{day:4,room:"LT003"}] }, // Tue/Wed/Thu
+  ];
+  const HSS_MAP = {};
+  HSS_ELECTIVES.forEach(h => HSS_MAP[h.code] = h);
+
+  let hssCode = null; // null = not chosen yet, "" = explicitly skipped, else one of HS21xx
+  let PERSONAL_SCHEDULE = SCHEDULE.slice();
+
+  function rebuildPersonalSchedule(){
+    let list = SCHEDULE.slice();
+    if(hssCode && HSS_MAP[hssCode]){
+      HSS_MAP[hssCode].sessions.forEach(sess=>{
+        list.push({ day:sess.day, start:HSS_START, end:HSS_END, code:hssCode, type:"hss", room:sess.room });
+      });
+    }
+    PERSONAL_SCHEDULE = list.sort((a,b)=> a.day-b.day || a.start-b.start);
+  }
+
+  function activeCourseCodes(){
+    return hssCode && HSS_MAP[hssCode] ? COURSE_CODES.concat([hssCode]) : COURSE_CODES;
+  }
+
+  // ---------------------------------------------------------------------
   // Cloud config — fill these in to make attendance sync across every
   // device/browser for every student, instead of living in one browser's
   // localStorage. Free tier is plenty for a class.
@@ -63,11 +96,19 @@
   //          names jsonb not null default '{}'::jsonb,
   //          updated_at timestamptz not null default now()
   //        );
+  //        create table cbe_hss (
+  //          roll text primary key,
+  //          code text not null default '',
+  //          updated_at timestamptz not null default now()
+  //        );
   //        alter table cbe_attendance enable row level security;
   //        alter table cbe_course_names enable row level security;
+  //        alter table cbe_hss enable row level security;
   //        create policy "anon full access" on cbe_attendance
   //          for all using (true) with check (true);
   //        create policy "anon full access" on cbe_course_names
+  //          for all using (true) with check (true);
+  //        create policy "anon full access" on cbe_hss
   //          for all using (true) with check (true);
   //
   //      NOTE: login here is just a roll number, not a password, so this
@@ -143,6 +184,20 @@
       });
       if(!res.ok) throw new Error('supabase set failed: ' + res.status);
     }
+    async function sbGetHss(roll){
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/cbe_hss?roll=eq.${encodeURIComponent(roll)}&select=code`, { headers: sbHeaders() });
+      if(!res.ok) throw new Error('supabase get failed: ' + res.status);
+      const rows = await res.json();
+      return rows[0] ? (rows[0].code || "") : null;
+    }
+    async function sbSetHss(roll, code){
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/cbe_hss`, {
+        method: 'POST',
+        headers: Object.assign(sbHeaders(), { Prefer: 'resolution=merge-duplicates' }),
+        body: JSON.stringify([{ roll, code, updated_at: new Date().toISOString() }])
+      });
+      if(!res.ok) throw new Error('supabase set failed: ' + res.status);
+    }
     async function sbGetCourseNames(){
       const res = await fetch(`${SUPABASE_URL}/rest/v1/cbe_course_names?id=eq.1&select=names`, { headers: sbHeaders() });
       if(!res.ok) throw new Error('supabase get failed: ' + res.status);
@@ -169,10 +224,12 @@
           catch(e){ return null; }
         }
         if(hasSupabase){
-          if(key.indexOf('attendance:') === 0 || key === 'course-names'){
+          if(key.indexOf('attendance:') === 0 || key === 'course-names' || key.indexOf('hss:') === 0){
             try{
               const raw = key.indexOf('attendance:') === 0
                 ? await sbGetAttendance(key.slice('attendance:'.length))
+                : key.indexOf('hss:') === 0
+                ? await sbGetHss(key.slice('hss:'.length))
                 : await sbGetCourseNames();
               if(raw !== null) lsWrite(key, raw); // cache for instant load / offline
               return raw === null ? lsRead(key) : { key, value: raw };
@@ -190,9 +247,10 @@
           try{ const r = await window.storage.set(key, value, shared); return r ? { key, value, synced:true } : { key, value, synced:false }; }
           catch(e){ return { key, value, synced:false }; }
         }
-        if(hasSupabase && (key.indexOf('attendance:') === 0 || key === 'course-names')){
+        if(hasSupabase && (key.indexOf('attendance:') === 0 || key === 'course-names' || key.indexOf('hss:') === 0)){
           try{
             if(key.indexOf('attendance:') === 0) await sbSetAttendance(key.slice('attendance:'.length), currentUser ? currentUser.name : '', value);
+            else if(key.indexOf('hss:') === 0) await sbSetHss(key.slice('hss:'.length), value);
             else await sbSetCourseNames(value);
             return { key, value, synced:true };
           }catch(e){
@@ -304,7 +362,63 @@
     updateSyncBadge();
     updateBackupCopy();
     updateBackupMeta();
+    updateHssButton();
+    if(hssCode === null) openHssModal(); // never chosen (nor explicitly skipped) — ask once
   }
+
+  // ---------------------------------------------------------------------
+  // HSS elective picker
+  // ---------------------------------------------------------------------
+  const hssOverlay = document.getElementById('hssModalOverlay');
+  const hssOptionsWrap = document.getElementById('hssOptions');
+  const DAY_FULL = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+
+  function updateHssButton(){
+    const lbl = document.getElementById('hssBtnLabel');
+    if(!lbl) return;
+    lbl.textContent = hssCode ? hssCode : (hssCode === "" ? "skipped" : "not set");
+  }
+
+  function renderHssOptions(){
+    hssOptionsWrap.innerHTML = HSS_ELECTIVES.map(h=>{
+      const days = h.sessions.map(s=>DAY_FULL[s.day]+" ("+s.room+")").join(", ");
+      const selected = hssCode === h.code;
+      return `
+      <div class="hss-option ${selected?'selected':''}" data-code="${h.code}">
+        <div class="hop-top">
+          <span class="hop-code">${h.code}</span>
+          <span class="hop-slot">Slot ${h.slot} · 2–3 PM</span>
+        </div>
+        <div class="hop-meta">${days}</div>
+      </div>`;
+    }).join("");
+    hssOptionsWrap.querySelectorAll('.hss-option').forEach(el=>{
+      el.addEventListener('click', async ()=>{
+        hssCode = el.dataset.code;
+        rebuildPersonalSchedule();
+        await persistHss();
+        updateHssButton();
+        closeHssModal();
+        renderAll();
+      });
+    });
+  }
+
+  function openHssModal(){
+    renderHssOptions();
+    hssOverlay.style.display = 'flex';
+  }
+  function closeHssModal(){ hssOverlay.style.display = 'none'; }
+
+  document.getElementById('hssBtn').addEventListener('click', openHssModal);
+  document.getElementById('hssSkipBtn').addEventListener('click', async ()=>{
+    if(hssCode === null) hssCode = ""; // only mark as "explicitly skipped" if never chosen
+    await persistHss();
+    updateHssButton();
+    closeHssModal();
+    renderAll();
+  });
+  hssOverlay.addEventListener('click', (e)=>{ if(e.target === hssOverlay) closeHssModal(); });
 
   // ---------------------------------------------------------------------
   // Backup / restore
@@ -489,9 +603,12 @@
     return changed;
   }
 
+  function hssKey(){ return 'hss:' + currentUser.roll; }
+
   async function loadUserData(){
     attendance = {};
     courseNames = {};
+    hssCode = null;
     try{
       const a = await Store.get(attKey(), true);
       if(a && a.value) attendance = JSON.parse(a.value);
@@ -500,10 +617,24 @@
       const n = await Store.get('course-names', true);
       if(n && n.value) courseNames = JSON.parse(n.value);
     }catch(e){ /* no custom names yet — fine */ }
+    try{
+      const h = await Store.get(hssKey(), true);
+      if(h && typeof h.value === 'string') hssCode = h.value; // "" = explicitly skipped
+    }catch(e){ /* never chosen yet — fine, stays null */ }
+    rebuildPersonalSchedule();
     if(migrateOldCodes()){
       await persistAttendance();
       await persistNames();
     }
+  }
+
+  async function persistHss(){
+    if(!currentUser) return;
+    try{
+      const res = await Store.set(hssKey(), hssCode || "", true);
+      if(res && res.synced === false) flashSaveToast(true, 'Saved locally — will sync when online');
+      else flashSaveToast(true, 'HSS elective saved');
+    }catch(e){ console.warn('hss save failed', e); flashSaveToast(false); }
   }
 
   let saveToastTimer = null;
@@ -539,6 +670,30 @@
   }
 
   function courseLabel(code){ return courseNames[code] || code; }
+  function tileCode(code){ return code.replace(/^CB|^HS/, ''); }
+
+  // Every place a course appears now shows its CODE plus an editable
+  // NAME (blank by default — "+ Add name" placeholder — since names
+  // aren't hardcoded; students fill them in themselves, once, and the
+  // label is shared via courseNames/persistNames like the old rename
+  // feature was). Any element with class "editable-name" + data-code
+  // gets wired up here after each render.
+  function nameEditableSpan(code, cls){
+    const has = !!courseNames[code];
+    return `<span class="${cls} editable-name ${has?'':'placeholder'}" data-code="${code}" title="Click to edit course name">${has ? courseNames[code] : '+ Add name'}</span>`;
+  }
+  function bindEditableNames(container){
+    container.querySelectorAll('.editable-name').forEach(el=>{
+      el.addEventListener('click', ()=>{
+        const code = el.dataset.code;
+        const val = prompt("Course name for "+code+":", courseNames[code]||"");
+        if(val===null) return;
+        if(val.trim()==="") delete courseNames[code]; else courseNames[code]=val.trim();
+        persistNames();
+        renderAll();
+      });
+    });
+  }
 
   function pad(n){ return n<10 ? "0"+n : ""+n; }
   function isoDate(d){ return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate()); }
@@ -561,7 +716,7 @@
 
   let now = new Date();
 
-  function scheduleForDay(dow){ return SCHEDULE.filter(s=>s.day===dow); }
+  function scheduleForDay(dow){ return PERSONAL_SCHEDULE.filter(s=>s.day===dow); }
 
   function findNext(){
     const dow = now.getDay();
@@ -614,11 +769,11 @@
     heroContent.innerHTML = `
       <div class="hero-main">
         <div class="hero-tile ${s.type}">
-          <div class="code">${s.code.replace('CB','')}</div>
+          <div class="code">${tileCode(s.code)}</div>
           <div class="kind">${s.type}</div>
         </div>
         <div class="hero-info">
-          <div class="hero-title">${courseLabel(s.code)}</div>
+          <div class="hero-title"><span class="hero-code">${s.code}</span>${nameEditableSpan(s.code,'hero-name')}</div>
           <div class="hero-meta">${dayLabel} · ${fmtHM(s.start)}–${fmtHM(s.end)} · <b>${s.room}</b></div>
         </div>
         <div class="hero-countdown ${status==='ongoing'?'ongoing':''}">
@@ -627,6 +782,7 @@
         </div>
       </div>
     `;
+    bindEditableNames(heroContent);
 
     if(offsetDays===0){
       burette.style.display="block";
@@ -716,10 +872,11 @@
 
       return `
       <div class="class-card ${isOngoing?'now':''} ${isDone && !isOngoing?'done':''}">
-        <div class="tile ${s.type}"><div class="num">${fmtHM(s.start).split(' ')[0]}</div><div class="code">${s.code.replace('CB','')}</div></div>
+        <div class="tile ${s.type}"><div class="num">${fmtHM(s.start).split(' ')[0]}</div><div class="code">${tileCode(s.code)}</div></div>
         <div class="cc-body">
           <div class="cc-top">
-            <span class="cc-name">${courseLabel(s.code)}</span>
+            <span class="cc-code">${s.code}</span>
+            ${nameEditableSpan(s.code,'cc-name')}
             <span class="cc-tag ${s.type}">${s.type}</span>
           </div>
           <div class="cc-meta">${fmtHM(s.start)}–${fmtHM(s.end)} · ${s.room}</div>
@@ -752,6 +909,7 @@
         renderAttendanceView();
       });
     });
+    bindEditableNames(wrap);
   }
 
   function renderWeek(){
@@ -766,20 +924,21 @@
             <div class="week-item">
               <span class="t">${fmtHM(s.start)}</span>
               <span class="dot ${s.type}"></span>
-              <span class="nm">${courseLabel(s.code)}</span>
+              <span class="nm-wrap"><span class="nm-code">${s.code}</span>${nameEditableSpan(s.code,'nm')}</span>
               <span class="rm">${s.room}</span>
-            </div>`).join("") : `<div style="color:var(--text-faint); font-size:12.5px;">— no 2nd-year sessions —</div>`}
+            </div>`).join("") : `<div style="color:var(--text-faint); font-size:12.5px;">— no sessions —</div>`}
         </div>
       </div>`;
     }
     wrap.innerHTML = html;
+    bindEditableNames(wrap);
   }
 
   let attSelectedDate = new Date();
 
   function computeStats(){
     const stats = {};
-    COURSE_CODES.forEach(c=> stats[c] = {present:0, total:0});
+    activeCourseCodes().forEach(c=> stats[c] = {present:0, total:0});
     let totalPresent=0, totalMarked=0;
     Object.keys(attendance).forEach(key=>{
       const [, code] = key.split("|");
@@ -820,7 +979,7 @@
     `;
 
     const statGrid = document.getElementById('statGrid');
-    statGrid.innerHTML = COURSE_CODES.map(code=>{
+    statGrid.innerHTML = activeCourseCodes().map(code=>{
       const st = stats[code] || {present:0,total:0};
       const pct = st.total ? Math.round(st.present/st.total*100) : null;
       const color = pct===null ? 'var(--text-faint)' : pct>=75 ? 'var(--green)' : pct>=60 ? 'var(--amber)' : 'var(--rose)';
@@ -829,23 +988,12 @@
       <div class="stat-card ${warn?'warn':''}">
         <div class="gauge">${gaugeSVG(pct||0, color)}<div class="pct" style="color:${color}">${pct===null?'–':pct+'%'}</div></div>
         <div>
-          <div class="code">${courseLabel(code)}<button class="rename-btn" data-code="${code}" title="Rename">✎</button></div>
+          <div class="code"><span class="stat-code">${code}</span>${nameEditableSpan(code,'stat-name')}<button class="rename-btn editable-name" data-code="${code}" title="Edit name">✎</button></div>
           <div class="sub">${st.present}/${st.total||0} sessions</div>
         </div>
       </div>`;
     }).join("");
-
-    statGrid.querySelectorAll('.rename-btn').forEach(b=>{
-      b.addEventListener('click', ()=>{
-        const code = b.dataset.code;
-        const val = prompt("Label for "+code+":", courseLabel(code));
-        if(val!==null && val.trim()!==""){
-          courseNames[code]=val.trim();
-          persistNames();
-          renderAll();
-        }
-      });
-    });
+    bindEditableNames(statGrid);
 
     renderAttendanceDay();
     updateBackupMeta();
@@ -869,9 +1017,9 @@
       const status = attendance[key];
       return `
       <div class="class-card">
-        <div class="tile ${s.type}"><div class="num">${fmtHM(s.start).split(' ')[0]}</div><div class="code">${s.code.replace('CB','')}</div></div>
+        <div class="tile ${s.type}"><div class="num">${fmtHM(s.start).split(' ')[0]}</div><div class="code">${tileCode(s.code)}</div></div>
         <div class="cc-body">
-          <div class="cc-top"><span class="cc-name">${courseLabel(s.code)}</span><span class="cc-tag ${s.type}">${s.type}</span></div>
+          <div class="cc-top"><span class="cc-code">${s.code}</span>${nameEditableSpan(s.code,'cc-name')}<span class="cc-tag ${s.type}">${s.type}</span></div>
           <div class="cc-meta">${fmtHM(s.start)}–${fmtHM(s.end)} · ${s.room}</div>
         </div>
         <div class="mark-group">
@@ -892,6 +1040,7 @@
         renderAttendanceView();
       });
     });
+    bindEditableNames(wrap);
   }
 
   document.querySelectorAll('.tab-btn').forEach(btn=>{
