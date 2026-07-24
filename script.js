@@ -44,6 +44,18 @@
 
   const COURSE_CODES = [...new Set(SCHEDULE.map(s=>s.code))].sort();
 
+  // Official course names — as given by the department.
+  const COURSE_NAMES = {
+    CB2101: "Introduction to Chemical Engineering",
+    CB2102: "Fluid Mechanics",
+    CB2103: "Heat Transfer",
+    CB2104: "Chemical Process Calculations",
+    CB2105: "Chemical Engineering Thermodynamics",
+    HS2110: "Language Human Mind and Indian Society",
+    HS2111: "Introductory Sociology",
+    HS2112: "Introduction to Demography",
+  };
+
   // ---------------------------------------------------------------------
   // HSS electives — from the dept's slot-reservation sheet. Every HSS
   // elective runs 2–3 PM across three of the week's days, in a fixed
@@ -669,30 +681,12 @@
     catch(e){ console.warn("save failed", e); lastSyncOk = false; lastSyncAt = new Date(); updateSyncBadge(); }
   }
 
-  function courseLabel(code){ return courseNames[code] || code; }
+  function courseLabel(code){ return COURSE_NAMES[code] || courseNames[code] || code; }
   function tileCode(code){ return code.replace(/^CB|^HS/, ''); }
 
-  // Every place a course appears now shows its CODE plus an editable
-  // NAME (blank by default — "+ Add name" placeholder — since names
-  // aren't hardcoded; students fill them in themselves, once, and the
-  // label is shared via courseNames/persistNames like the old rename
-  // feature was). Any element with class "editable-name" + data-code
-  // gets wired up here after each render.
-  function nameEditableSpan(code, cls){
-    const has = !!courseNames[code];
-    return `<span class="${cls} editable-name ${has?'':'placeholder'}" data-code="${code}" title="Click to edit course name">${has ? courseNames[code] : '+ Add name'}</span>`;
-  }
-  function bindEditableNames(container){
-    container.querySelectorAll('.editable-name').forEach(el=>{
-      el.addEventListener('click', ()=>{
-        const code = el.dataset.code;
-        const val = prompt("Course name for "+code+":", courseNames[code]||"");
-        if(val===null) return;
-        if(val.trim()==="") delete courseNames[code]; else courseNames[code]=val.trim();
-        persistNames();
-        renderAll();
-      });
-    });
+  // Every place a course appears shows its CODE plus its official NAME.
+  function nameSpan(code, cls){
+    return `<span class="${cls}">${courseLabel(code)}</span>`;
   }
 
   function pad(n){ return n<10 ? "0"+n : ""+n; }
@@ -773,7 +767,7 @@
           <div class="kind">${s.type}</div>
         </div>
         <div class="hero-info">
-          <div class="hero-title"><span class="hero-code">${s.code}</span>${nameEditableSpan(s.code,'hero-name')}</div>
+          <div class="hero-title"><span class="hero-code">${s.code}</span>${nameSpan(s.code,'hero-name')}</div>
           <div class="hero-meta">${dayLabel} · ${fmtHM(s.start)}–${fmtHM(s.end)} · <b>${s.room}</b></div>
         </div>
         <div class="hero-countdown ${status==='ongoing'?'ongoing':''}">
@@ -782,7 +776,6 @@
         </div>
       </div>
     `;
-    bindEditableNames(heroContent);
 
     if(offsetDays===0){
       burette.style.display="block";
@@ -876,7 +869,7 @@
         <div class="cc-body">
           <div class="cc-top">
             <span class="cc-code">${s.code}</span>
-            ${nameEditableSpan(s.code,'cc-name')}
+            ${nameSpan(s.code,'cc-name')}
             <span class="cc-tag ${s.type}">${s.type}</span>
           </div>
           <div class="cc-meta">${fmtHM(s.start)}–${fmtHM(s.end)} · ${s.room}</div>
@@ -909,7 +902,6 @@
         renderAttendanceView();
       });
     });
-    bindEditableNames(wrap);
   }
 
   function renderWeek(){
@@ -924,14 +916,13 @@
             <div class="week-item">
               <span class="t">${fmtHM(s.start)}</span>
               <span class="dot ${s.type}"></span>
-              <span class="nm-wrap"><span class="nm-code">${s.code}</span>${nameEditableSpan(s.code,'nm')}</span>
+              <span class="nm-wrap"><span class="nm-code">${s.code}</span>${nameSpan(s.code,'nm')}</span>
               <span class="rm">${s.room}</span>
             </div>`).join("") : `<div style="color:var(--text-faint); font-size:12.5px;">— no sessions —</div>`}
         </div>
       </div>`;
     }
     wrap.innerHTML = html;
-    bindEditableNames(wrap);
   }
 
   let attSelectedDate = new Date();
@@ -988,12 +979,11 @@
       <div class="stat-card ${warn?'warn':''}">
         <div class="gauge">${gaugeSVG(pct||0, color)}<div class="pct" style="color:${color}">${pct===null?'–':pct+'%'}</div></div>
         <div>
-          <div class="code"><span class="stat-code">${code}</span>${nameEditableSpan(code,'stat-name')}<button class="rename-btn editable-name" data-code="${code}" title="Edit name">✎</button></div>
+          <div class="code"><span class="stat-code">${code}</span>${nameSpan(code,'stat-name')}</div>
           <div class="sub">${st.present}/${st.total||0} sessions</div>
         </div>
       </div>`;
     }).join("");
-    bindEditableNames(statGrid);
 
     renderAttendanceDay();
     updateBackupMeta();
@@ -1019,7 +1009,7 @@
       <div class="class-card">
         <div class="tile ${s.type}"><div class="num">${fmtHM(s.start).split(' ')[0]}</div><div class="code">${tileCode(s.code)}</div></div>
         <div class="cc-body">
-          <div class="cc-top"><span class="cc-code">${s.code}</span>${nameEditableSpan(s.code,'cc-name')}<span class="cc-tag ${s.type}">${s.type}</span></div>
+          <div class="cc-top"><span class="cc-code">${s.code}</span>${nameSpan(s.code,'cc-name')}<span class="cc-tag ${s.type}">${s.type}</span></div>
           <div class="cc-meta">${fmtHM(s.start)}–${fmtHM(s.end)} · ${s.room}</div>
         </div>
         <div class="mark-group">
@@ -1040,7 +1030,6 @@
         renderAttendanceView();
       });
     });
-    bindEditableNames(wrap);
   }
 
   document.querySelectorAll('.tab-btn').forEach(btn=>{
