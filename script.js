@@ -790,8 +790,10 @@
           ${list.length ? list.map(s=>`
             <div class="week-item">
               <span class="t">${fmtHM(s.start)}</span>
-              <span class="dot ${s.type}"></span>
-              <span class="nm-wrap"><span class="nm-code">${s.code}</span>${nameSpan(s.code,'nm')}</span>
+              <span class="mid">
+                <span class="dot ${s.type}"></span>
+                <span class="nm-wrap"><span class="nm-code">${s.code}</span>${nameSpan(s.code,'nm')}</span>
+              </span>
               <span class="rm">${s.room}</span>
             </div>`).join("") : `<div style="color:var(--text-faint); font-size:12.5px;">— no sessions —</div>`}
         </div>

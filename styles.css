@@ -335,17 +335,21 @@
   .week-day-head{display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;}
   .week-day-head h3{margin:0; font-size:14.5px;}
   .week-day-head .count{font-family:var(--mono); font-size:11px; color:var(--text-faint);}
-  .week-list{display:flex; flex-direction:column; gap:8px;}
-  .week-item{display:flex; align-items:center; gap:10px; font-size:13px; flex-wrap:wrap;}
-  .week-item .t{font-family:var(--mono); font-size:11.5px; color:var(--text-dim); width:96px; flex-shrink:0;}
-  .week-item .dot{width:8px; height:8px; border-radius:50%; flex-shrink:0;}
+  .week-list{display:flex; flex-direction:column; gap:10px;}
+  .week-item{
+    display:grid; grid-template-columns:74px 1fr auto; column-gap:10px;
+    align-items:start; font-size:13px;
+  }
+  .week-item .t{font-family:var(--mono); font-size:11.5px; color:var(--text-dim); padding-top:2px; white-space:nowrap;}
+  .week-item .mid{display:flex; align-items:flex-start; gap:7px; min-width:0;}
+  .week-item .dot{width:8px; height:8px; border-radius:50%; flex-shrink:0; margin-top:6px;}
   .week-item .dot.lecture{background:var(--teal);}
   .week-item .dot.lab{background:var(--amber);}
   .week-item .dot.hss{background:var(--violet);}
-  .week-item .nm-wrap{display:flex; align-items:baseline; gap:6px; flex-wrap:wrap;}
-  .week-item .nm-code{font-family:var(--mono); font-size:11px; color:var(--text-faint); font-weight:700;}
-  .week-item .nm{font-weight:600;}
-  .week-item .rm{color:var(--text-faint); font-size:11.5px; margin-left:auto; font-family:var(--mono);}
+  .week-item .nm-wrap{display:flex; align-items:baseline; gap:6px; flex-wrap:wrap; min-width:0;}
+  .week-item .nm-code{font-family:var(--mono); font-size:11px; color:var(--text-faint); font-weight:700; flex-shrink:0;}
+  .week-item .nm{font-weight:600; word-break:break-word;}
+  .week-item .rm{color:var(--text-faint); font-size:11.5px; font-family:var(--mono); text-align:right; white-space:nowrap; padding-top:2px;}
 
   .stat-grid{display:grid; grid-template-columns:repeat(auto-fit, minmax(140px,1fr)); gap:10px; margin-bottom:20px;}
   .stat-card{
@@ -444,4 +448,7 @@
     .hero-main{gap:12px;}
     .clock .time{font-size:16px;}
     .brand-name{font-size:13.5px;}
+    .week-item{grid-template-columns:60px 1fr auto; column-gap:7px; font-size:12.5px;}
+    .week-item .t{font-size:11px;}
+    .week-item .rm{font-size:11px;}
   }
