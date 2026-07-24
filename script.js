@@ -130,8 +130,8 @@
   //   3) Project Settings → API → copy "Project URL" and the "anon public"
   //      key into the two constants below.
   // ---------------------------------------------------------------------
-  const SUPABASE_URL = "https://ektzrezmwzhautdmbrwf.supabase.co";        // e.g. ""
-  const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVrdHpyZXptd3poYXV0ZG1icndmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ4OTY1MzksImV4cCI6MjEwMDQ3MjUzOX0.IoVDIWNNqMzFFZUk_C2LV8Wm-cxBs3OM6Cp5bP2GTr4";   // the "anon public" API key
+  const SUPABASE_URL = "";        // e.g. "https://abcdefgh.supabase.co"
+  const SUPABASE_ANON_KEY = "";   // the "anon public" API key
 
   // ---------------------------------------------------------------------
   // Storage adapter
@@ -834,22 +834,6 @@
     const nowMin = now.getHours()*60+now.getMinutes();
     const dayHasStarted = startOfDay(dateForDow).getTime() < startOfDay(now).getTime();
 
-    const dayStart = list[0].start-30, dayEnd = list[list.length-1].end+30;
-    const railHeight = Math.max(220, list.length*84);
-
-    let railTicks = "";
-    list.forEach(s=>{
-      const p = ((s.start-dayStart)/(dayEnd-dayStart))*100;
-      railTicks += `<div class="rail-tick" style="top:${p}%">${fmtHM(s.start).replace(' ','')}</div>`;
-    });
-    let railFill = "", railNow = "";
-    if(isToday){
-      let p = ((nowMin-dayStart)/(dayEnd-dayStart))*100;
-      p = Math.max(0,Math.min(100,p));
-      railFill = `<div class="rail-fill" style="height:${p}%"></div>`;
-      railNow = `<div class="rail-now" style="top:${p}%"></div>`;
-    }
-
     const cards = list.map(s=>{
       const isOngoing = isToday && nowMin>=s.start && nowMin<s.end;
       const isDone = isToday && nowMin>=s.end;
@@ -885,10 +869,7 @@
 
     wrap.innerHTML = `
       <div class="section-label">${isToday?"Today":DAY_NAMES[dow]}'s sessions</div>
-      <div class="timeline">
-        <div class="rail" style="height:${railHeight}px">${railFill}${railTicks}${railNow}</div>
-        <div class="cards">${cards}</div>
-      </div>
+      <div class="cards">${cards}</div>
     `;
 
     wrap.querySelectorAll('.mark-btn').forEach(btn=>{
