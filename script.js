@@ -10,34 +10,93 @@
 
   function tm(h,m){ return h*60+m; }
 
+  // Source: official department timetable PDF (Time_Table_Autumn_2026.pdf),
+  // extracted programmatically with pdfplumber (not read off a screenshot),
+  // so room/code/time values below are taken verbatim from the document's
+  // own table cells. "(R105)"/"(R106)" in the PDF means that session is
+  // temporarily relocated out of R-102 — reflected in the room field.
   const SCHEDULE = [
     // Monday
-    { day:1, start:tm(15,0), end:tm(18,0),  code:"CB2201", type:"lab",     room:"Dept" },
+    { day:1, start:tm(16,0), end:tm(16,55), code:"CB2102", type:"lecture", room:"R102" },
+    { day:1, start:tm(17,0), end:tm(17,55), code:"CB2103", type:"lecture", room:"R307" },
 
     // Tuesday
-    { day:2, start:tm(10,0), end:tm(11,55), code:"CB2205", type:"lecture", room:"R307" },
-    { day:2, start:tm(12,0), end:tm(12,55), code:"CB2202", type:"lecture", room:"R307" },
-    { day:2, start:tm(15,0), end:tm(15,55), code:"CB2203", type:"lecture", room:"R307" },
-    { day:2, start:tm(16,0), end:tm(17,55), code:"CB2204", type:"lecture", room:"R307" },
+    { day:2, start:tm(9,0),  end:tm(9,55),  code:"CB2105", type:"lecture", room:"R106" },
+    { day:2, start:tm(10,0), end:tm(10,55), code:"CB2104", type:"lecture", room:"R102" },
+    { day:2, start:tm(15,0), end:tm(16,55), code:"CB2101", type:"lecture", room:"R105" },
 
     // Wednesday
-    { day:3, start:tm(9,0),  end:tm(10,55), code:"CB2203", type:"lecture", room:"R307" },
-    { day:3, start:tm(11,0), end:tm(11,55), code:"CB2202", type:"lecture", room:"R307" },
-    { day:3, start:tm(15,0), end:tm(16,55), code:"CB2204", type:"lab",     room:"Lab"  },
+    { day:3, start:tm(9,0),  end:tm(9,55),  code:"CB2105", type:"lecture", room:"R307" },
+    { day:3, start:tm(10,0), end:tm(10,55), code:"CB2103", type:"lecture", room:"R307" },
+    { day:3, start:tm(15,0), end:tm(16,55), code:"CB2102", type:"lecture", room:"R102" },
+    { day:3, start:tm(17,0), end:tm(17,55), code:"CB2104", type:"lecture", room:"R102" },
 
     // Thursday
-    { day:4, start:tm(16,0), end:tm(16,55), code:"CB2202", type:"lecture", room:"R307" },
+    { day:4, start:tm(10,0), end:tm(12,55), code:"CB2103", type:"lab",     room:"Lab"  },
+    { day:4, start:tm(15,0), end:tm(16,55), code:"CB2104", type:"lecture", room:"R102" },
+    { day:4, start:tm(17,0), end:tm(17,55), code:"CB2103", type:"lecture", room:"R307" },
 
     // Friday
-    { day:5, start:tm(10,0), end:tm(10,55), code:"CB2205", type:"lecture", room:"R307" },
-    { day:5, start:tm(11,0), end:tm(12,55), code:"CB2201", type:"lecture", room:"R307" },
+    { day:5, start:tm(10,0), end:tm(11,55), code:"CB2102", type:"lab",     room:"Lab"  },
+    { day:5, start:tm(15,0), end:tm(15,55), code:"CB2102", type:"lecture", room:"R102" },
+    { day:5, start:tm(16,0), end:tm(16,55), code:"CB2105", type:"lecture", room:"R102" },
   ].sort((a,b)=> a.day-b.day || a.start-b.start);
 
   const COURSE_CODES = [...new Set(SCHEDULE.map(s=>s.code))].sort();
 
-  const SUPABASE_URL = "https://cqzltvyubqbyaddufgcd.supabase.co";        
-  const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNxemx0dnl1YnFieWFkZHVmZ2NkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ3ODY3OTEsImV4cCI6MjEwMDM2Mjc5MX0.T6HRG54lKQR49jGic_urA-s3y1mu38wXRcA6rGNK04I";   // the "anon public" API key
+  // ---------------------------------------------------------------------
+  // Cloud config — fill these in to make attendance sync across every
+  // device/browser for every student, instead of living in one browser's
+  // localStorage. Free tier is plenty for a class.
+  //
+  //   1) Create a project at https://supabase.com
+  //   2) In the SQL editor, run:
+  //
+  //        create table cbe_attendance (
+  //          roll text primary key,
+  //          name text,
+  //          attendance jsonb not null default '{}'::jsonb,
+  //          updated_at timestamptz not null default now()
+  //        );
+  //        create table cbe_course_names (
+  //          id int primary key default 1,
+  //          names jsonb not null default '{}'::jsonb,
+  //          updated_at timestamptz not null default now()
+  //        );
+  //        alter table cbe_attendance enable row level security;
+  //        alter table cbe_course_names enable row level security;
+  //        create policy "anon full access" on cbe_attendance
+  //          for all using (true) with check (true);
+  //        create policy "anon full access" on cbe_course_names
+  //          for all using (true) with check (true);
+  //
+  //      NOTE: login here is just a roll number, not a password, so this
+  //      policy lets anyone with the anon key read/write any row — same
+  //      trust model as a shared spreadsheet. Fine for a class attendance
+  //      sheet; don't reuse this pattern for anything sensitive.
+  //   3) Project Settings → API → copy "Project URL" and the "anon public"
+  //      key into the two constants below.
+  // ---------------------------------------------------------------------
+  const SUPABASE_URL = "";        // e.g. "https://abcdefgh.supabase.co"
+  const SUPABASE_ANON_KEY = "";   // the "anon public" API key
 
+  // ---------------------------------------------------------------------
+  // Storage adapter
+  // ---------------------------------------------------------------------
+  // This app needs to work in a few different environments, checked in
+  // this order:
+  //  1) Inside Claude's own Artifact panel, where `window.storage` exists
+  //     and syncs data across whoever has the artifact open.
+  //  2) Hosted anywhere else (GitHub Pages, Vercel, etc.) with Supabase
+  //     configured above — attendance and course-name renames sync to
+  //     the cloud, so any student sees the same data on any device.
+  //  3) Neither of the above — falls back to plain localStorage, which
+  //     only survives on that one browser/device.
+  // In every case, a local copy is also kept in localStorage so the app
+  // loads instantly and still works offline; cloud writes happen in the
+  // background and don't block the UI.
+  // `Store` gives the rest of the app one consistent async API
+  // (get/set/delete) no matter which tier is actually active.
   const Store = (function(){
     const hasRemote = !!(window.storage && typeof window.storage.get === 'function');
     const hasSupabase = !!(SUPABASE_URL && SUPABASE_ANON_KEY);
@@ -65,6 +124,11 @@
         'Content-Type': 'application/json'
       };
     }
+    // Our simple key/value model maps onto two small tables:
+    //   'attendance:<ROLL>' -> one row per student in cbe_attendance
+    //   'course-names'      -> a single shared row (id=1) in cbe_course_names
+    // Anything else (remembered-roll, last-backup-at) is device-local only
+    // and never leaves localStorage — there's no benefit to syncing it.
     async function sbGetAttendance(roll){
       const res = await fetch(`${SUPABASE_URL}/rest/v1/cbe_attendance?roll=eq.${encodeURIComponent(roll)}&select=attendance`, { headers: sbHeaders() });
       if(!res.ok) throw new Error('supabase get failed: ' + res.status);
@@ -96,6 +160,8 @@
 
     return {
       isRemote: hasRemote,
+      // True whenever data actually leaves this one browser — used to
+      // decide whether to show the "local only" warning banner.
       isCloud: hasRemote || hasSupabase,
       async get(key, shared){
         if(hasRemote){
@@ -235,21 +301,69 @@
     await loadUserData();
     renderAll();
     updateStorageBanner();
+    updateSyncBadge();
     updateBackupCopy();
     updateBackupMeta();
   }
 
+  // ---------------------------------------------------------------------
+  // Backup / restore
+  // ---------------------------------------------------------------------
+  // Store.isRemote is false whenever this is running outside Claude's own
+  // Artifact panel (i.e. hosted normally, which is how this app is meant
+  // to be used) — in that mode everything lives in this browser's
+  // localStorage only. That's fine day-to-day, but over a 4-month semester
+  // a cleared cache, a new device, or reinstalling the browser would wipe
+  // it. These export/import helpers let a student keep their own copy and
+  // move it between devices/browsers whenever they want.
   function updateStorageBanner(){
     const banner = document.getElementById('storageBanner');
-    const badge = document.getElementById('syncBadge');
-    if(badge){
-      if(Store.isCloud){ badge.textContent = '☁ Synced'; badge.className = 'sync-badge cloud'; }
-      else{ badge.textContent = '💾 Local only'; badge.className = 'sync-badge local'; }
-    }
     if(!banner) return;
     if(Store.isCloud){ banner.style.display = 'none'; return; }
     banner.style.display = 'flex';
     banner.innerHTML = `⚠️ Saved to this browser only — clearing browser data or switching device/browser will lose it. <b>Back up from the Attendance tab.</b>`;
+  }
+
+  // Real per-save confirmation, not just "is the cloud configured". Every
+  // persistAttendance()/persistNames() call reports here whether that
+  // specific write actually reached Supabase (synced:true) or only made
+  // it as far as this browser's local cache (synced:false). The badge
+  // shows the outcome of the *last* save and how long ago it happened —
+  // so if it's stuck on an old timestamp or shows the warning state,
+  // something's actually wrong, rather than you having to take it on faith.
+  let lastSyncOk = null;   // null = no save attempted yet this session
+  let lastSyncAt = null;
+
+  function timeAgoShort(d){
+    const s = Math.floor((Date.now() - d.getTime())/1000);
+    if(s < 5) return 'just now';
+    if(s < 60) return s+'s ago';
+    const m = Math.floor(s/60);
+    if(m < 60) return m+'m ago';
+    const h = Math.floor(m/60);
+    return h+'h ago';
+  }
+
+  function updateSyncBadge(){
+    const badge = document.getElementById('syncBadge');
+    if(!badge) return;
+    if(!Store.isCloud){
+      badge.textContent = '💾 Local only';
+      badge.className = 'sync-badge local';
+      return;
+    }
+    if(lastSyncOk === null){
+      badge.textContent = '☁ Cloud enabled';
+      badge.className = 'sync-badge cloud';
+      return;
+    }
+    if(lastSyncOk){
+      badge.textContent = '✓ Synced ' + timeAgoShort(lastSyncAt);
+      badge.className = 'sync-badge cloud';
+    } else {
+      badge.textContent = '⚠ Not synced — saved locally';
+      badge.className = 'sync-badge local';
+    }
   }
 
   function updateBackupCopy(){
@@ -342,6 +456,39 @@
 
   function attKey(){ return 'attendance:' + currentUser.roll; }
 
+  // One-time migration: the department renumbered courses from CB22XX to
+  // CB21XX (same last two digits, just the prefix changed). Attendance
+  // marks are keyed as "date|code|start", so without this they'd stay
+  // filed under the old code and silently drop out of this semester's
+  // stats/history the moment SCHEDULE switched to the new codes. This
+  // renames any old-code entries in place, once, and re-saves.
+  const CODE_MIGRATION = { "CB2201":"CB2101", "CB2202":"CB2102", "CB2203":"CB2103", "CB2204":"CB2104", "CB2205":"CB2105" };
+
+  function migrateOldCodes(){
+    let changed = false;
+    const migratedAttendance = {};
+    Object.keys(attendance).forEach(key=>{
+      const parts = key.split("|");
+      if(parts.length === 3 && CODE_MIGRATION[parts[1]]){
+        parts[1] = CODE_MIGRATION[parts[1]];
+        changed = true;
+      }
+      migratedAttendance[parts.join("|")] = attendance[key];
+    });
+    if(changed) attendance = migratedAttendance;
+
+    const migratedNames = {};
+    Object.keys(courseNames).forEach(code=>{
+      const newCode = CODE_MIGRATION[code] || code;
+      if(newCode !== code) changed = true;
+      // Don't clobber a name already set for the new code.
+      if(!(newCode in migratedNames)) migratedNames[newCode] = courseNames[code];
+    });
+    courseNames = migratedNames;
+
+    return changed;
+  }
+
   async function loadUserData(){
     attendance = {};
     courseNames = {};
@@ -353,6 +500,10 @@
       const n = await Store.get('course-names', true);
       if(n && n.value) courseNames = JSON.parse(n.value);
     }catch(e){ /* no custom names yet — fine */ }
+    if(migrateOldCodes()){
+      await persistAttendance();
+      await persistNames();
+    }
   }
 
   let saveToastTimer = null;
@@ -369,19 +520,22 @@
     if(!currentUser){ flashSaveToast(false, 'Not saved — no user'); return; }
     try{
       const res = await Store.set(attKey(), JSON.stringify(attendance), true);
-      if(!res) flashSaveToast(false, 'Save failed — storage unavailable');
-      else if(res.synced === false) flashSaveToast(true, 'Saved locally — will sync when online');
-      else flashSaveToast(true);
+      if(!res){ flashSaveToast(false, 'Save failed — storage unavailable'); lastSyncOk = false; lastSyncAt = new Date(); }
+      else if(res.synced === false){ flashSaveToast(true, 'Saved locally — will sync when online'); lastSyncOk = false; lastSyncAt = new Date(); }
+      else{ flashSaveToast(true); lastSyncOk = true; lastSyncAt = new Date(); }
+      updateSyncBadge();
     }
-    catch(e){ console.warn("save failed", e); flashSaveToast(false); }
+    catch(e){ console.warn("save failed", e); flashSaveToast(false); lastSyncOk = false; lastSyncAt = new Date(); updateSyncBadge(); }
   }
   async function persistNames(){
     try{
       const res = await Store.set('course-names', JSON.stringify(courseNames), true);
-      if(!res) flashSaveToast(false, 'Save failed — storage unavailable');
-      else if(res.synced === false) flashSaveToast(true, 'Saved locally — will sync when online');
+      if(!res){ flashSaveToast(false, 'Save failed — storage unavailable'); lastSyncOk = false; lastSyncAt = new Date(); }
+      else if(res.synced === false){ flashSaveToast(true, 'Saved locally — will sync when online'); lastSyncOk = false; lastSyncAt = new Date(); }
+      else{ lastSyncOk = true; lastSyncAt = new Date(); }
+      updateSyncBadge();
     }
-    catch(e){ console.warn("save failed", e); flashSaveToast(false); }
+    catch(e){ console.warn("save failed", e); lastSyncOk = false; lastSyncAt = new Date(); updateSyncBadge(); }
   }
 
   function courseLabel(code){ return courseNames[code] || code; }
@@ -767,6 +921,7 @@
       now.toLocaleDateString(undefined,{weekday:'long', month:'short', day:'numeric'});
     if(!currentUser) return;
     renderHero();
+    if(lastSyncOk === true) updateSyncBadge();
     if(document.getElementById('view-now').classList.contains('active')){
       const dow = selectedDow===null ? now.getDay() : selectedDow;
       if(dow===now.getDay()) renderNowTimeline();
