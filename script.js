@@ -130,8 +130,8 @@
   //   3) Project Settings → API → copy "Project URL" and the "anon public"
   //      key into the two constants below.
   // ---------------------------------------------------------------------
-  const SUPABASE_URL = "";        // e.g. "https://abcdefgh.supabase.co"
-  const SUPABASE_ANON_KEY = "";   // the "anon public" API key
+  const SUPABASE_URL = "https://ektzrezmwzhautdmbrwf.supabase.co";        // e.g. ""
+  const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVrdHpyZXptd3poYXV0ZG1icndmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ4OTY1MzksImV4cCI6MjEwMDQ3MjUzOX0.IoVDIWNNqMzFFZUk_C2LV8Wm-cxBs3OM6Cp5bP2GTr4";   // the "anon public" API key
 
   // ---------------------------------------------------------------------
   // Storage adapter
