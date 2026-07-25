@@ -45,6 +45,7 @@
     CB2103: "Heat Transfer",
     CB2104: "Chemical Process Calculations",
     CB2105: "Chemical Engineering Thermodynamics",
+    HS2101: "MBA Elective", // TODO: replace with the real course title
     HS2110: "Language Human Mind and Indian Society",
     HS2111: "Introductory Sociology",
     HS2112: "Introduction to Demography",
@@ -59,6 +60,19 @@
   const HSS_MAP = {};
   HSS_ELECTIVES.forEach(h => HSS_MAP[h.code] = h);
 
+  // Students with a dual CBE+MBA roll number (2503CBxx) get this course auto-added
+  // on top of their normal core schedule — nobody else is affected.
+  const MBA_ROLL_PREFIX = "2503CB";
+  function isMbaRoll(roll){ return typeof roll === "string" && roll.toUpperCase().startsWith(MBA_ROLL_PREFIX); }
+  const MBA_COURSE = {
+    code: "HS2101",
+    sessions: [
+      { day:1, start:tm(15,0), end:tm(15,55), room:"B1/202" }, // Mon 3:00–3:55 PM
+      { day:3, start:tm(10,0), end:tm(10,55), room:"B1/202" }, // Wed 10:00–10:55 AM
+      { day:5, start:tm(10,0), end:tm(10,55), room:"B1/202" }, // Fri 10:00–10:55 AM
+    ]
+  };
+
   let hssCode = null; 
   let PERSONAL_SCHEDULE = SCHEDULE.slice();
 
@@ -69,11 +83,19 @@
         list.push({ day:sess.day, start:HSS_START, end:HSS_END, code:hssCode, type:"hss", room:sess.room });
       });
     }
+    if(currentUser && isMbaRoll(currentUser.roll)){
+      MBA_COURSE.sessions.forEach(sess=>{
+        list.push({ day:sess.day, start:sess.start, end:sess.end, code:MBA_COURSE.code, type:"mba", room:sess.room });
+      });
+    }
     PERSONAL_SCHEDULE = list.sort((a,b)=> a.day-b.day || a.start-b.start);
   }
 
   function activeCourseCodes(){
-    return hssCode && HSS_MAP[hssCode] ? COURSE_CODES.concat([hssCode]) : COURSE_CODES;
+    let codes = COURSE_CODES.slice();
+    if(hssCode && HSS_MAP[hssCode]) codes.push(hssCode);
+    if(currentUser && isMbaRoll(currentUser.roll)) codes.push(MBA_COURSE.code);
+    return codes;
   }
   
   const SUPABASE_URL = "https://ektzrezmwzhautdmbrwf.supabase.co";       
