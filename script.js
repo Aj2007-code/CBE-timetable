@@ -45,7 +45,7 @@
     CB2103: "Heat Transfer",
     CB2104: "Chemical Process Calculations",
     CB2105: "Chemical Engineering Thermodynamics",
-    HS2101: "MBA Elective", // TODO: replace with the real course title
+    HS2101: "Mathematical Statistics",
     HS2110: "Language Human Mind and Indian Society",
     HS2111: "Introductory Sociology",
     HS2112: "Introduction to Demography",
@@ -67,9 +67,10 @@
   const MBA_COURSE = {
     code: "HS2101",
     sessions: [
-      { day:1, start:tm(15,0), end:tm(15,55), room:"B1/202" }, // Mon 3:00–3:55 PM
-      { day:3, start:tm(10,0), end:tm(10,55), room:"B1/202" }, // Wed 10:00–10:55 AM
-      { day:5, start:tm(10,0), end:tm(10,55), room:"B1/202" }, // Fri 10:00–10:55 AM
+      { day:1, start:tm(15,0), end:tm(15,55), room:"B1/202" },                    // Mon 3:00–3:55 PM
+      { day:3, start:tm(10,0), end:tm(10,55), room:"B1/202" },                    // Wed 10:00–10:55 AM
+      { day:5, start:tm(10,0), end:tm(10,55), room:"B1/202" },                    // Fri 10:00–10:55 AM
+      { day:5, start:tm(15,0), end:tm(15,55), room:"B1/202", tag:"tutorial" },    // Fri 3:00–3:55 PM (Tutorial)
     ]
   };
 
@@ -85,7 +86,7 @@
     }
     if(currentUser && isMbaRoll(currentUser.roll)){
       MBA_COURSE.sessions.forEach(sess=>{
-        list.push({ day:sess.day, start:sess.start, end:sess.end, code:MBA_COURSE.code, type:"mba", room:sess.room });
+        list.push({ day:sess.day, start:sess.start, end:sess.end, code:MBA_COURSE.code, type:"mba", room:sess.room, tag:sess.tag });
       });
     }
     PERSONAL_SCHEDULE = list.sort((a,b)=> a.day-b.day || a.start-b.start);
@@ -680,7 +681,7 @@
       <div class="hero-main">
         <div class="hero-tile ${s.type}">
           <div class="code">${tileCode(s.code)}</div>
-          <div class="kind">${s.type}</div>
+          <div class="kind">${s.tag || s.type}</div>
         </div>
         <div class="hero-info">
           <div class="hero-title"><span class="hero-code">${s.code}</span>${nameSpan(s.code,'hero-name')}</div>
@@ -770,7 +771,7 @@
           <div class="cc-top">
             <span class="cc-code">${s.code}</span>
             ${nameSpan(s.code,'cc-name')}
-            <span class="cc-tag ${s.type}">${s.type}</span>
+            <span class="cc-tag ${s.type}">${s.tag || s.type}</span>
           </div>
           <div class="cc-meta">${fmtHM(s.start)}–${fmtHM(s.end)} · ${s.room}</div>
           ${statusLine}
@@ -908,7 +909,7 @@
       <div class="class-card">
         <div class="tile ${s.type}"><div class="num">${fmtHM(s.start).split(' ')[0]}</div><div class="code">${tileCode(s.code)}</div></div>
         <div class="cc-body">
-          <div class="cc-top"><span class="cc-code">${s.code}</span>${nameSpan(s.code,'cc-name')}<span class="cc-tag ${s.type}">${s.type}</span></div>
+          <div class="cc-top"><span class="cc-code">${s.code}</span>${nameSpan(s.code,'cc-name')}<span class="cc-tag ${s.type}">${s.tag || s.type}</span></div>
           <div class="cc-meta">${fmtHM(s.start)}–${fmtHM(s.end)} · ${s.room}</div>
         </div>
         <div class="mark-group">
