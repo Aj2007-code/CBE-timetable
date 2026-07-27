@@ -378,6 +378,22 @@
   .overall-bar{
     border:1px solid var(--border); background:var(--surface); border-radius:14px; padding:16px 18px; margin-bottom:20px;
   }
+
+  .credits-grid{display:flex; flex-direction:column; gap:10px;}
+  .credit-card{border:1px solid var(--border); background:var(--surface); border-radius:14px; padding:14px;}
+  .credit-top{display:flex; align-items:baseline; gap:8px; margin-bottom:12px; flex-wrap:wrap;}
+  .credit-dot{width:9px; height:9px; border-radius:50%; flex-shrink:0; position:relative; top:-1px;}
+  .credit-dot.lecture{background:var(--teal);}
+  .credit-dot.hss{background:var(--violet);}
+  .credit-dot.mba{background:var(--blue);}
+  .credit-name{font-weight:700; font-size:14.5px;}
+  .credit-ltpc{display:grid; grid-template-columns:repeat(4,1fr); gap:8px;}
+  .ltpc-box{background:var(--surface-2); border:1px solid var(--border-soft); border-radius:10px; padding:9px 4px; text-align:center;}
+  .ltpc-box .v{display:block; font-family:var(--mono); font-weight:800; font-size:15px;}
+  .ltpc-box .k{display:block; font-size:9px; color:var(--text-faint); text-transform:uppercase; letter-spacing:0.5px; margin-top:3px;}
+  .ltpc-box.credit{background:var(--surface-3); border-color:var(--border);}
+  .ltpc-box.credit .v{color:var(--teal);}
+  .credit-missing{font-size:12px; color:var(--text-faint); font-family:var(--mono);}
   .overall-top{display:flex; justify-content:space-between; align-items:baseline; margin-bottom:8px;}
   .overall-top .big{font-family:var(--mono); font-size:26px; font-weight:800;}
   .overall-track{height:10px; border-radius:6px; background:var(--surface-3); overflow:hidden;}

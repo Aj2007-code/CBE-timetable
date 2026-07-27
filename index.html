@@ -75,6 +75,7 @@
     <button class="tab-btn active" data-view="now">Now</button>
     <button class="tab-btn" data-view="week">Week</button>
     <button class="tab-btn" data-view="attendance">Attendance</button>
+    <button class="tab-btn" data-view="credits">Credits</button>
   </div>
 
   <div class="view active" id="view-now">
@@ -110,6 +111,19 @@
       </div>
       <div class="backup-meta" id="backupMeta"></div>
     </div>
+  </div>
+
+  <div class="view" id="view-credits">
+    <div class="overall-bar" id="creditsTotalBar">
+      <div class="overall-top">
+        <div>Total credits this semester</div>
+        <div class="big" id="creditsTotalVal">—</div>
+      </div>
+      <div style="font-size:11.5px; color:var(--text-faint); font-family:var(--mono); margin-top:8px;">
+        L = Lecture hrs/wk · T = Tutorial hrs/wk · P = Practical hrs/wk
+      </div>
+    </div>
+    <div class="credits-grid" id="creditsGrid"></div>
   </div>
 
   <footer>

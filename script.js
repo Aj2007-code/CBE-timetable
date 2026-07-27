@@ -51,6 +51,24 @@
     HS2112: "Introduction to Demography",
   };
 
+  // L-T-P-Credit as shown on the ERP course pages
+  const COURSE_CREDITS = {
+    CB2101: { l:2, t:0, p:0, c:2 },
+    CB2102: { l:3, t:1, p:2, c:5 },
+    CB2103: { l:3, t:0, p:3, c:4.5 },
+    CB2104: { l:3, t:1, p:0, c:4 },
+    CB2105: { l:3, t:0, p:0, c:3 },
+    HS2101: { l:3, t:1, p:0, c:4 },
+    HS2110: { l:3, t:0, p:0, c:3 },
+    HS2111: { l:3, t:0, p:0, c:3 },
+    HS2112: { l:3, t:0, p:0, c:3 },
+  };
+  function courseCategory(code){
+    if(code === MBA_COURSE.code) return "mba";
+    if(HSS_MAP[code]) return "hss";
+    return "lecture";
+  }
+
   const HSS_START = tm(14,0), HSS_END = tm(15,0);
   const HSS_ELECTIVES = [
     { code:"HS2110", slot:6,  sessions:[{day:3,room:"LT103"},{day:4,room:"LT103"},{day:5,room:"LT103"}] }, // Wed/Thu/Fri
@@ -889,6 +907,36 @@
     updateBackupMeta();
   }
 
+  function renderCreditsView(){
+    const codes = activeCourseCodes();
+    let totalCredits = 0;
+    const grid = document.getElementById('creditsGrid');
+    if(!grid) return;
+    grid.innerHTML = codes.map(code=>{
+      const cr = COURSE_CREDITS[code];
+      if(cr) totalCredits += cr.c;
+      const cat = courseCategory(code);
+      const body = cr ? `
+        <div class="credit-ltpc">
+          <div class="ltpc-box"><span class="v">${cr.l}</span><span class="k">L</span></div>
+          <div class="ltpc-box"><span class="v">${cr.t}</span><span class="k">T</span></div>
+          <div class="ltpc-box"><span class="v">${cr.p}</span><span class="k">P</span></div>
+          <div class="ltpc-box credit"><span class="v">${cr.c}</span><span class="k">Credits</span></div>
+        </div>` : `<div class="credit-missing">Credit details not available yet</div>`;
+      return `
+      <div class="credit-card">
+        <div class="credit-top">
+          <span class="credit-dot ${cat}"></span>
+          <span class="stat-code">${code}</span>
+          ${nameSpan(code,'credit-name')}
+        </div>
+        ${body}
+      </div>`;
+    }).join("");
+    const totalEl = document.getElementById('creditsTotalVal');
+    if(totalEl) totalEl.textContent = totalCredits ? (Math.round(totalCredits*100)/100) : '—';
+  }
+
   function renderAttendanceDay(){
     const d = attSelectedDate;
     const dow = d.getDay();
@@ -972,6 +1020,7 @@
     renderNowTimeline();
     renderWeek();
     renderAttendanceView();
+    renderCreditsView();
     renderHero();
   }
 
