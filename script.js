@@ -51,7 +51,6 @@
     HS2112: "Introduction to Demography",
   };
 
-  // L-T-P-Credit as shown on the ERP course pages
   const COURSE_CREDITS = {
     CB2101: { l:2, t:0, p:0, c:2 },
     CB2102: { l:3, t:1, p:2, c:5 },
@@ -78,8 +77,6 @@
   const HSS_MAP = {};
   HSS_ELECTIVES.forEach(h => HSS_MAP[h.code] = h);
 
-  // Students with a dual CBE+MBA roll number (2503CBxx) get this course auto-added
-  // on top of their normal core schedule — nobody else is affected.
   const MBA_ROLL_PREFIX = "2503CB";
   function isMbaRoll(roll){ return typeof roll === "string" && roll.toUpperCase().startsWith(MBA_ROLL_PREFIX); }
   const MBA_COURSE = {
@@ -117,15 +114,12 @@
     return codes;
   }
 
-  // ---- SPI calculator ----
   const GRADE_POINTS = { AA:10, AB:9, BB:8, BC:7, CC:6, CD:5, DD:4, F:0 };
   const GRADE_COLOR_VARS = {
     AA:'var(--teal)', AB:'var(--teal)', BB:'var(--green)', BC:'var(--green)',
     CC:'var(--amber)', CD:'var(--amber)', DD:'var(--rose)', F:'var(--rose)'
   };
-  // Paste your Google Apps Script Web App /exec URL here to have SPI results
-  // auto-saved to a Google Sheet. Leave blank to skip saving (still calculates fine).
-  const SPI_SHEET_URL = "";
+  const SPI_SHEET_URL = "https://script.google.com/macros/s/AKfycbyZzh5TVusLQDYL6rOn9xVhpinAEqIty9dUS3qRAcgK4KmWqkXj9WFUA-qWacSoTbSB/exec";
 
   function spiTheme(s){
     if(s >= 9) return { color:'var(--teal)',  label:'Outstanding' };
@@ -403,7 +397,7 @@
 
   document.getElementById('hssBtn').addEventListener('click', openHssModal);
   document.getElementById('hssSkipBtn').addEventListener('click', async ()=>{
-    if(hssCode === null) hssCode = ""; // only mark as "explicitly skipped" if never chosen
+    if(hssCode === null) hssCode = ""; 
     await persistHss();
     updateHssButton();
     closeHssModal();
@@ -956,7 +950,7 @@
     if(totalEl) totalEl.textContent = totalCredits ? (Math.round(totalCredits*100)/100) : '—';
   }
 
-  let spiCourses = []; // active codes that have known credit info, snapshotted at render time
+  let spiCourses = []; 
 
   function renderSpiView(){
     const rows = document.getElementById('spiGradeRows');
