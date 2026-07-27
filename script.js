@@ -116,6 +116,25 @@
     if(currentUser && isMbaRoll(currentUser.roll)) codes.push(MBA_COURSE.code);
     return codes;
   }
+
+  // ---- SPI calculator ----
+  const GRADE_POINTS = { AA:10, AB:9, BB:8, BC:7, CC:6, CD:5, DD:4, F:0 };
+  const GRADE_COLOR_VARS = {
+    AA:'var(--teal)', AB:'var(--teal)', BB:'var(--green)', BC:'var(--green)',
+    CC:'var(--amber)', CD:'var(--amber)', DD:'var(--rose)', F:'var(--rose)'
+  };
+  // Paste your Google Apps Script Web App /exec URL here to have SPI results
+  // auto-saved to a Google Sheet. Leave blank to skip saving (still calculates fine).
+  const SPI_SHEET_URL = "";
+
+  function spiTheme(s){
+    if(s >= 9) return { color:'var(--teal)',  label:'Outstanding' };
+    if(s >= 8) return { color:'var(--green)', label:'Excellent' };
+    if(s >= 7) return { color:'var(--blue)',  label:'Very Good' };
+    if(s >= 6) return { color:'var(--amber)', label:'Good' };
+    if(s >= 5) return { color:'var(--amber)', label:'Average' };
+    return       { color:'var(--rose)',  label:'Below Avg' };
+  }
   
   const SUPABASE_URL = "https://ektzrezmwzhautdmbrwf.supabase.co";       
   const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVrdHpyZXptd3poYXV0ZG1icndmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ4OTY1MzksImV4cCI6MjEwMDQ3MjUzOX0.IoVDIWNNqMzFFZUk_C2LV8Wm-cxBs3OM6Cp5bP2GTr4";  
@@ -937,6 +956,117 @@
     if(totalEl) totalEl.textContent = totalCredits ? (Math.round(totalCredits*100)/100) : '—';
   }
 
+  let spiCourses = []; // active codes that have known credit info, snapshotted at render time
+
+  function renderSpiView(){
+    const rows = document.getElementById('spiGradeRows');
+    if(!rows) return;
+    spiCourses = activeCourseCodes().filter(code => COURSE_CREDITS[code]);
+    rows.innerHTML = spiCourses.map((code, i)=>{
+      const cr = COURSE_CREDITS[code];
+      return `
+      <div class="spi-row">
+        <div class="spi-row-name">${courseLabel(code)}<small>${code}</small></div>
+        <div class="spi-row-credit">${cr.c}cr</div>
+        <select id="spiG${i}">
+          <option value="">—</option>
+          ${Object.keys(GRADE_POINTS).map(g=>`<option value="${g}">${g}</option>`).join('')}
+        </select>
+      </div>`;
+    }).join("");
+    rows.querySelectorAll('select').forEach(sel=>{
+      sel.addEventListener('change', checkSpiReady);
+    });
+    document.getElementById('spiResult').classList.remove('show');
+    checkSpiReady();
+  }
+
+  function checkSpiReady(){
+    const btn = document.getElementById('spiCalcBtn');
+    if(!btn) return;
+    const all = spiCourses.length>0 && spiCourses.every((_, i)=>{
+      const el = document.getElementById('spiG'+i);
+      return el && el.value !== '';
+    });
+    btn.disabled = !all;
+  }
+
+  async function calculateSpi(){
+    if(!currentUser || spiCourses.length===0) return;
+    const all = spiCourses.every((_, i)=>{
+      const el = document.getElementById('spiG'+i); return el && el.value !== '';
+    });
+    if(!all) return;
+
+    let totalCr = 0, weighted = 0;
+    const grades = {};
+    spiCourses.forEach((code, i)=>{
+      const g = document.getElementById('spiG'+i).value;
+      const cr = COURSE_CREDITS[code];
+      grades[code] = g;
+      totalCr += cr.c;
+      weighted += cr.c * GRADE_POINTS[g];
+    });
+    const spi = Math.round((weighted/totalCr)*100)/100;
+    const theme = spiTheme(spi);
+
+    const scoreEl = document.getElementById('spiScoreVal');
+    scoreEl.textContent = spi.toFixed(2);
+    scoreEl.style.color = theme.color;
+
+    const badge = document.getElementById('spiGradeBadge');
+    badge.textContent = theme.label;
+    badge.style.background = 'color-mix(in srgb, ' + theme.color + ' 18%, transparent)';
+    badge.style.border = '1px solid color-mix(in srgb, ' + theme.color + ' 40%, transparent)';
+    badge.style.color = theme.color;
+
+    const segBar = document.getElementById('spiSegBar');
+    segBar.innerHTML = '';
+    const filled = Math.round(spi);
+    for(let i=0;i<10;i++){
+      const seg = document.createElement('div');
+      seg.className = 'spi-seg' + (i<filled ? (spi<5 ? ' active-warn' : ' active') : '');
+      segBar.appendChild(seg);
+    }
+
+    const grid = document.getElementById('spiBreakdownGrid');
+    grid.innerHTML = spiCourses.map(code=>{
+      const g = grades[code];
+      return `
+      <div class="spi-brow">
+        <span class="spi-brow-name">${code}</span>
+        <span class="spi-brow-grade" style="color:${GRADE_COLOR_VARS[g]}">${g}</span>
+      </div>`;
+    }).join("");
+
+    document.getElementById('spiResult').classList.add('show');
+    document.getElementById('spiResult').scrollIntoView({ behavior:'smooth', block:'nearest' });
+
+    const msg = document.getElementById('spiSaveMsg');
+    if(!SPI_SHEET_URL){
+      msg.textContent = '';
+      msg.className = 'spi-save-msg';
+      return;
+    }
+    const btn = document.getElementById('spiCalcBtn');
+    btn.disabled = true;
+    msg.textContent = 'Saving…'; msg.className = 'spi-save-msg';
+    try{
+      await fetch(SPI_SHEET_URL, {
+        method: 'POST', mode: 'no-cors',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ roll: currentUser.roll, name: currentUser.name, spi: spi.toFixed(2), grades, submittedAt: new Date().toISOString() })
+      });
+      msg.textContent = '✓ Result saved'; msg.className = 'spi-save-msg ok';
+    }catch(e){
+      msg.textContent = '⚠ Could not save — check connection'; msg.className = 'spi-save-msg err';
+    }finally{
+      checkSpiReady();
+    }
+  }
+
+  document.getElementById('spiCalcBtn').addEventListener('click', calculateSpi);
+
   function renderAttendanceDay(){
     const d = attSelectedDate;
     const dow = d.getDay();
@@ -1021,6 +1151,7 @@
     renderWeek();
     renderAttendanceView();
     renderCreditsView();
+    renderSpiView();
     renderHero();
   }
 

@@ -72,10 +72,41 @@
   </div>
 
   <div class="tabs">
+    <button class="tab-btn" data-view="spi">SPI</button>
     <button class="tab-btn active" data-view="now">Now</button>
     <button class="tab-btn" data-view="week">Week</button>
     <button class="tab-btn" data-view="attendance">Attendance</button>
     <button class="tab-btn" data-view="credits">Credits</button>
+  </div>
+
+  <div class="view" id="view-spi">
+    <div class="spi-intro">
+      <div class="spi-intro-title">Calculate your SPI</div>
+      <div class="spi-intro-sub">Pick a grade for each of your courses this semester — pulled from your own course list, credits and all.</div>
+    </div>
+    <div class="spi-grades" id="spiGradeRows"></div>
+    <button class="spi-btn" id="spiCalcBtn" disabled>
+      <span id="spiBtnLabel">Calculate SPI</span>
+    </button>
+
+    <div class="spi-result" id="spiResult">
+      <div class="spi-result-top">
+        <div class="spi-result-label-row">
+          <span class="spi-result-label">SPI Score</span>
+          <span class="spi-grade-tag" id="spiGradeBadge"></span>
+        </div>
+        <div class="spi-score-row">
+          <div class="spi-score" id="spiScoreVal">—</div>
+          <div class="spi-denom">/ 10</div>
+        </div>
+        <div class="spi-seg-bar" id="spiSegBar"></div>
+      </div>
+      <div class="spi-result-bottom">
+        <div class="spi-breakdown-title">Subject breakdown</div>
+        <div class="spi-breakdown-grid" id="spiBreakdownGrid"></div>
+        <div class="spi-save-msg" id="spiSaveMsg"></div>
+      </div>
+    </div>
   </div>
 
   <div class="view active" id="view-now">
