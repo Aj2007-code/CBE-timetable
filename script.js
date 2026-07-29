@@ -367,6 +367,15 @@
   if(infoGotItBtn) infoGotItBtn.addEventListener('click', closeInfoModal);
   if(infoOverlay) infoOverlay.addEventListener('click', (e)=>{ if(e.target === infoOverlay) closeInfoModal(); });
 
+  const aboutOverlay = document.getElementById('aboutModalOverlay');
+  const aboutBtn = document.getElementById('aboutBtn');
+  const aboutCloseBtn = document.getElementById('aboutCloseBtn');
+  function openAboutModal(){ if(aboutOverlay) aboutOverlay.style.display = 'flex'; }
+  function closeAboutModal(){ if(aboutOverlay) aboutOverlay.style.display = 'none'; }
+  if(aboutBtn) aboutBtn.addEventListener('click', openAboutModal);
+  if(aboutCloseBtn) aboutCloseBtn.addEventListener('click', closeAboutModal);
+  if(aboutOverlay) aboutOverlay.addEventListener('click', (e)=>{ if(e.target === aboutOverlay) closeAboutModal(); });
+
   const hssOverlay = document.getElementById('hssModalOverlay');
   const hssOptionsWrap = document.getElementById('hssOptions');
   const DAY_FULL = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];

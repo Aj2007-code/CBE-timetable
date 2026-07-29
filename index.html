@@ -36,6 +36,7 @@
   <div class="user-bar">
     <div class="user-hello">Hello, <b id="helloName">Student</b><span class="roll" id="helloRoll"></span><span class="sync-badge" id="syncBadge"></span></div>
     <div class="user-bar-actions">
+      <button class="about-btn" id="aboutBtn">ⓘ About</button>
       <button class="hss-btn" id="hssBtn">HSS: <span id="hssBtnLabel">not set</span></button>
       <button class="logout-btn" id="logoutBtn">Switch user</button>
     </div>
@@ -194,6 +195,28 @@
       </div>
     </div>
     <button class="modal-skip" id="infoGotItBtn">Got it</button>
+  </div>
+</div>
+
+<div class="modal-overlay" id="aboutModalOverlay" style="display:none;">
+  <div class="modal-card">
+    <div class="modal-title">Know more about this page</div>
+    <div class="modal-sub">A quick tour of what's here, beyond just your timetable.</div>
+    <div class="feature-list">
+      <div class="feature-item">
+        <span class="feature-tag spi">SPI</span>
+        <span class="info-text"><b>SPI Calculator</b> — open the <b>SPI</b> tab, pick a grade for each of your courses this semester, then tap <b>Calculate SPI</b> once you're done. Your SPI out of 10 shows up instantly, along with a subject-by-subject breakdown.</span>
+      </div>
+      <div class="feature-item">
+        <span class="feature-tag cr">CR</span>
+        <span class="info-text"><b>Credits</b> — the <b>Credits</b> tab lists the L-T-P (Lecture/Tutorial/Practical) split and credit value for every course this semester, plus your total credit load at the top.</span>
+      </div>
+      <div class="feature-item">
+        <span class="feature-tag at">✓</span>
+        <span class="info-text"><b>Attendance</b> — mark Present, Absent, or Cancelled from the <b>Now</b> or <b>Week</b> view with one tap, then track your overall and subject-wise percentage in the <b>Attendance</b> tab.</span>
+      </div>
+    </div>
+    <button class="modal-skip" id="aboutCloseBtn">Got it</button>
   </div>
 </div>
 
