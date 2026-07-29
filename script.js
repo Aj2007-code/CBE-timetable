@@ -351,8 +351,21 @@
     updateBackupCopy();
     updateBackupMeta();
     updateHssButton();
-    if(hssCode === null) openHssModal(); 
+    openInfoModal();
   }
+
+  const infoOverlay = document.getElementById('infoModalOverlay');
+  function openInfoModal(){
+    if(!infoOverlay) { if(hssCode === null) openHssModal(); return; }
+    infoOverlay.style.display = 'flex';
+  }
+  function closeInfoModal(){
+    if(infoOverlay) infoOverlay.style.display = 'none';
+    if(hssCode === null) openHssModal();
+  }
+  const infoGotItBtn = document.getElementById('infoGotItBtn');
+  if(infoGotItBtn) infoGotItBtn.addEventListener('click', closeInfoModal);
+  if(infoOverlay) infoOverlay.addEventListener('click', (e)=>{ if(e.target === infoOverlay) closeInfoModal(); });
 
   const hssOverlay = document.getElementById('hssModalOverlay');
   const hssOptionsWrap = document.getElementById('hssOptions');
