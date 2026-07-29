@@ -354,12 +354,23 @@
     openInfoModal();
   }
 
+  const INFO_DISMISS_KEY = 'cbe-timetable:hideAttendanceInfo';
+  function isInfoDismissed(){
+    try{ return localStorage.getItem(INFO_DISMISS_KEY) === '1'; }
+    catch(e){ return false; }
+  }
+  function setInfoDismissed(){
+    try{ localStorage.setItem(INFO_DISMISS_KEY, '1'); }catch(e){}
+  }
+
   const infoOverlay = document.getElementById('infoModalOverlay');
+  const infoDontShowAgain = document.getElementById('infoDontShowAgain');
   function openInfoModal(){
-    if(!infoOverlay) { if(hssCode === null) openHssModal(); return; }
+    if(isInfoDismissed() || !infoOverlay) { if(hssCode === null) openHssModal(); return; }
     infoOverlay.style.display = 'flex';
   }
   function closeInfoModal(){
+    if(infoDontShowAgain && infoDontShowAgain.checked) setInfoDismissed();
     if(infoOverlay) infoOverlay.style.display = 'none';
     if(hssCode === null) openHssModal();
   }
