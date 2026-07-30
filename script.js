@@ -1,7 +1,7 @@
 (function(){
   "use strict";
 
-  const STUDENTS = [{"roll":"2501CB23","name":"AARSH JAIN"},{"roll":"2501CB49","name":"ABHI RAJ"},{"roll":"2501CB13","name":"ABHINAV B"},{"roll":"2501CB33","name":"ABHISHEK BANSAL"},{"roll":"2501CB58","name":"ADWAIT VATS"},{"roll":"2501CB42","name":"AHAN BHATTACHARJEE"},{"roll":"2501CB39","name":"AMAN SAROJ"},{"roll":"2501CB14","name":"ANGAJ SAHIL SARJERAO"},{"roll":"2501CB34","name":"ANSER AYAAN"},{"roll":"2501CB62","name":"ANSHU VISHWAKARMA"},{"roll":"2501CB37","name":"ANUPAM SHARMA"},{"roll":"2501CB06","name":"ARCHIT SHANKER"},{"roll":"2501CB26","name":"ARYAN DEV"},{"roll":"2501CB41","name":"AVDHESH MEENA"},{"roll":"2501CB16","name":"BIBHAS BIKASH BISWAS"},{"roll":"2501CB32","name":"BIKI BARMAN"},{"roll":"2501CB60","name":"BISWAS MAYANK PRADYUT"},{"roll":"2501CB51","name":"BOYINA SADVIKA"},{"roll":"2501CB46","name":"CHILMAKURI CHARAN"},{"roll":"2501CB24","name":"DHADSE OMESH VASANTRAO"},{"roll":"2501CB19","name":"DHRUV AGNIHOTRI"},{"roll":"2501CB22","name":"DHRUV ARVIND GANATRA"},{"roll":"2501CB03","name":"DIA HALDER"},{"roll":"2501CB04","name":"EMIN PHILIP SAJI"},{"roll":"2501CB40","name":"GAURAV SUKHADIA"},{"roll":"2501CB47","name":"HARIOM SINGH"},{"roll":"2501CB31","name":"HEMANT KUMAR BAIRWA"},{"roll":"2501CB01","name":"J SAMRUTHA"},{"roll":"2501CB07","name":"JARPULA MURALI"},{"roll":"2501CB05","name":"KAJAL BATRA"},{"roll":"2501CB11","name":"KARISHMA"},{"roll":"2501CB10","name":"KATURI VANSHIKA"},{"roll":"2501CB29","name":"KAVYA GUPTA"},{"roll":"2501CB48","name":"MADA AKEERA SRI VARSHAN"},{"roll":"2501CB43","name":"MADHUR SRIVASTAVA"},{"roll":"2501CB08","name":"MANAV RATHORE"},{"roll":"2501CB21","name":"NASREEN FATIMA"},{"roll":"2501CB20","name":"OSHI MALVIYA"},{"roll":"2501CB45","name":"PILLI SRI VAISHNAVI"},{"roll":"2501CB02","name":"PRIYANSHI PATEL"},{"roll":"2501CB12","name":"PUSHPENDRA SHARMA"},{"roll":"2501CB57","name":"RAGHVENDRA MEENA"},{"roll":"2501CB56","name":"RAJ ARYAN"},{"roll":"2501CB50","name":"RAUSHAN KUMAR"},{"roll":"2501CB54","name":"RIDDHI PATEL"},{"roll":"2501CB35","name":"S ADITYA"},{"roll":"2501CB55","name":"SACHIN"},{"roll":"2501CB38","name":"SAI SUBRAT JENA"},{"roll":"2501CB44","name":"SAKALA SATHWIK"},{"roll":"2501CB15","name":"SAMIT SARDAR"},{"roll":"2501CB53","name":"SANKET YADAV JADHAV"},{"roll":"2501CB09","name":"SAPTARSHI BOSE"},{"roll":"2501CB52","name":"SARTHAK ANUSIMI"},{"roll":"2501CB61","name":"SATISH KUMAR YADAV"},{"roll":"2501CB28","name":"SHANTANU SARDAR"},{"roll":"2501CB64","name":"SHORYA PRATAP SINGH"},{"roll":"2501CB59","name":"SNEHADIP GHOSH"},{"roll":"2501CB30","name":"SWARNAVA KUNDU"},{"roll":"2501CB63","name":"TANIYA KUMARI GUPTA"},{"roll":"2501CB25","name":"VAANYA VERMA"},{"roll":"2501CB36","name":"VADAVELLI KAMALI HARSHITHA"},{"roll":"2501CB65","name":"VADITHYA UPENDAR"},{"roll":"2501CB17","name":"VAIBHAV SANJAY BHAGURE"},{"roll":"2501CB27","name":"VAISHNAV KRISHNA DURGASI"},{"roll":"2501CB18","name":"VANSH KHURANA"},{"roll":"2503CB01","name":"ADARSH CHOUDHARY"},{"roll":"2503CB02","name":"AMOOLYA SHARAN"},{"roll":"2503CB05","name":"DHEERAJ KUMAR"},{"roll":"2503CB03","name":"TEJVEER"},{"roll":"2503CB04","name":"YASH MADHOK"}];
+  const STUDENTS = [{"roll":"2501CB23","name":"AARSH JAIN"},{"roll":"2501CB49","name":"ABHI RAJ"},{"roll":"2501CB13","name":"ABHINAV B"},{"roll":"2501CB33","name":"ABHISHEK BANSAL"},{"roll":"2501CB58","name":"ADWAIT VATS"},{"roll":"2501CB42","name":"AHAN BHATTACHARJEE"},{"roll":"2501CB39","name":"AMAN SAROJ"},{"roll":"2501CB14","name":"ANGAJ SAHIL SARJERAO"},{"roll":"2501CB34","name":"ANSER AYAAN"},{"roll":"2501CB62","name":"ANSHU VISHWAKARMA"},{"roll":"2501CB06","name":"ARCHIT SHANKER"},{"roll":"2501CB26","name":"ARYAN DEV"},{"roll":"2501CB41","name":"AVDHESH MEENA"},{"roll":"2501CB16","name":"BIBHAS BIKASH BISWAS"},{"roll":"2501CB32","name":"BIKI BARMAN"},{"roll":"2501CB60","name":"BISWAS MAYANK PRADYUT"},{"roll":"2501CB51","name":"BOYINA SADVIKA"},{"roll":"2501CB46","name":"CHILMAKURI CHARAN"},{"roll":"2501CB24","name":"DHADSE OMESH VASANTRAO"},{"roll":"2501CB19","name":"DHRUV AGNIHOTRI"},{"roll":"2501CB22","name":"DHRUV ARVIND GANATRA"},{"roll":"2501CB03","name":"DIA HALDER"},{"roll":"2501CB04","name":"EMIN PHILIP SAJI"},{"roll":"2501CB40","name":"GAURAV SUKHADIA"},{"roll":"2501CB47","name":"HARIOM SINGH"},{"roll":"2501CB31","name":"HEMANT KUMAR BAIRWA"},{"roll":"2501CB01","name":"J SAMRUTHA"},{"roll":"2501CB07","name":"JARPULA MURALI"},{"roll":"2501CB05","name":"KAJAL BATRA"},{"roll":"2501CB11","name":"KARISHMA"},{"roll":"2501CB10","name":"KATURI VANSHIKA"},{"roll":"2501CB29","name":"KAVYA GUPTA"},{"roll":"2501CB48","name":"MADA AKEERA SRI VARSHAN"},{"roll":"2501CB43","name":"MADHUR SRIVASTAVA"},{"roll":"2501CB08","name":"MANAV RATHORE"},{"roll":"2501CB21","name":"NASREEN FATIMA"},{"roll":"2501CB20","name":"OSHI MALVIYA"},{"roll":"2501CB45","name":"PILLI SRI VAISHNAVI"},{"roll":"2501CB02","name":"PRIYANSHI PATEL"},{"roll":"2501CB12","name":"PUSHPENDRA SHARMA"},{"roll":"2501CB56","name":"RAJ ARYAN"},{"roll":"2501CB50","name":"RAUSHAN KUMAR"},{"roll":"2501CB54","name":"RIDDHI PATEL"},{"roll":"2501CB35","name":"S ADITYA"},{"roll":"2501CB55","name":"SACHIN"},{"roll":"2501CB38","name":"SAI SUBRAT JENA"},{"roll":"2501CB44","name":"SAKALA SATHWIK"},{"roll":"2501CB15","name":"SAMIT SARDAR"},{"roll":"2501CB53","name":"SANKET YADAV JADHAV"},{"roll":"2501CB09","name":"SAPTARSHI BOSE"},{"roll":"2501CB52","name":"SARTHAK ANUSIMI"},{"roll":"2501CB61","name":"SATISH KUMAR YADAV"},{"roll":"2501CB28","name":"SHANTANU SARDAR"},{"roll":"2501CB64","name":"SHORYA PRATAP SINGH"},{"roll":"2501CB59","name":"SNEHADIP GHOSH"},{"roll":"2501CB30","name":"SWARNAVA KUNDU"},{"roll":"2501CB63","name":"TANIYA KUMARI GUPTA"},{"roll":"2501CB25","name":"VAANYA VERMA"},{"roll":"2501CB36","name":"VADAVELLI KAMALI HARSHITHA"},{"roll":"2501CB65","name":"VADITHYA UPENDAR"},{"roll":"2501CB17","name":"VAIBHAV SANJAY BHAGURE"},{"roll":"2501CB27","name":"VAISHNAV KRISHNA DURGASI"},{"roll":"2501CB18","name":"VANSH KHURANA"},{"roll":"2503CB01","name":"ADARSH CHOUDHARY"},{"roll":"2503CB02","name":"AMOOLYA SHARAN"},{"roll":"2503CB05","name":"DHEERAJ KUMAR"},{"roll":"2503CB03","name":"TEJVEER"},{"roll":"2503CB04","name":"YASH MADHOK"}];
   const STUDENT_MAP = {};
   STUDENTS.forEach(s => STUDENT_MAP[s.roll.toUpperCase()] = s.name);
 
@@ -45,28 +45,10 @@
     CB2103: "Heat Transfer",
     CB2104: "Chemical Process Calculations",
     CB2105: "Chemical Engineering Thermodynamics",
-    HS2101: "Mathematical Statistics",
     HS2110: "Language Human Mind and Indian Society",
     HS2111: "Introductory Sociology",
     HS2112: "Introduction to Demography",
   };
-
-  const COURSE_CREDITS = {
-    CB2101: { l:2, t:0, p:0, c:2 },
-    CB2102: { l:3, t:1, p:2, c:5 },
-    CB2103: { l:3, t:0, p:3, c:4.5 },
-    CB2104: { l:3, t:1, p:0, c:4 },
-    CB2105: { l:3, t:0, p:0, c:3 },
-    HS2101: { l:3, t:1, p:0, c:4 },
-    HS2110: { l:3, t:0, p:0, c:3 },
-    HS2111: { l:3, t:0, p:0, c:3 },
-    HS2112: { l:3, t:0, p:0, c:3 },
-  };
-  function courseCategory(code){
-    if(code === MBA_COURSE.code) return "mba";
-    if(HSS_MAP[code]) return "hss";
-    return "lecture";
-  }
 
   const HSS_START = tm(14,0), HSS_END = tm(15,0);
   const HSS_ELECTIVES = [
@@ -76,18 +58,6 @@
   ];
   const HSS_MAP = {};
   HSS_ELECTIVES.forEach(h => HSS_MAP[h.code] = h);
-
-  const MBA_ROLL_PREFIX = "2503CB";
-  function isMbaRoll(roll){ return typeof roll === "string" && roll.toUpperCase().startsWith(MBA_ROLL_PREFIX); }
-  const MBA_COURSE = {
-    code: "HS2101",
-    sessions: [
-      { day:1, start:tm(15,0), end:tm(15,55), room:"B1/202" },                    // Mon 3:00–3:55 PM
-      { day:3, start:tm(10,0), end:tm(10,55), room:"B1/202" },                    // Wed 10:00–10:55 AM
-      { day:5, start:tm(10,0), end:tm(10,55), room:"B1/202" },                    // Fri 10:00–10:55 AM
-      { day:5, start:tm(15,0), end:tm(15,55), room:"B1/202", tag:"tutorial" },    // Fri 3:00–3:55 PM (Tutorial)
-    ]
-  };
 
   let hssCode = null; 
   let PERSONAL_SCHEDULE = SCHEDULE.slice();
@@ -99,35 +69,11 @@
         list.push({ day:sess.day, start:HSS_START, end:HSS_END, code:hssCode, type:"hss", room:sess.room });
       });
     }
-    if(currentUser && isMbaRoll(currentUser.roll)){
-      MBA_COURSE.sessions.forEach(sess=>{
-        list.push({ day:sess.day, start:sess.start, end:sess.end, code:MBA_COURSE.code, type:"mba", room:sess.room, tag:sess.tag });
-      });
-    }
     PERSONAL_SCHEDULE = list.sort((a,b)=> a.day-b.day || a.start-b.start);
   }
 
   function activeCourseCodes(){
-    let codes = COURSE_CODES.slice();
-    if(hssCode && HSS_MAP[hssCode]) codes.push(hssCode);
-    if(currentUser && isMbaRoll(currentUser.roll)) codes.push(MBA_COURSE.code);
-    return codes;
-  }
-
-  const GRADE_POINTS = { AA:10, AB:9, BB:8, BC:7, CC:6, CD:5, DD:4, F:0 };
-  const GRADE_COLOR_VARS = {
-    AA:'var(--teal)', AB:'var(--teal)', BB:'var(--green)', BC:'var(--green)',
-    CC:'var(--amber)', CD:'var(--amber)', DD:'var(--rose)', F:'var(--rose)'
-  };
-  const SPI_SHEET_URL = "https://script.google.com/macros/s/AKfycbyZzh5TVusLQDYL6rOn9xVhpinAEqIty9dUS3qRAcgK4KmWqkXj9WFUA-qWacSoTbSB/exec";
-
-  function spiTheme(s){
-    if(s >= 9) return { color:'var(--teal)',  label:'Outstanding' };
-    if(s >= 8) return { color:'var(--green)', label:'Excellent' };
-    if(s >= 7) return { color:'var(--blue)',  label:'Very Good' };
-    if(s >= 6) return { color:'var(--amber)', label:'Good' };
-    if(s >= 5) return { color:'var(--amber)', label:'Average' };
-    return       { color:'var(--rose)',  label:'Below Avg' };
+    return hssCode && HSS_MAP[hssCode] ? COURSE_CODES.concat([hssCode]) : COURSE_CODES;
   }
   
   const SUPABASE_URL = "https://ektzrezmwzhautdmbrwf.supabase.co";       
@@ -351,41 +297,8 @@
     updateBackupCopy();
     updateBackupMeta();
     updateHssButton();
-    openInfoModal();
+    if(hssCode === null) openHssModal(); 
   }
-
-  const INFO_DISMISS_KEY = 'cbe-timetable:hideAttendanceInfo';
-  function isInfoDismissed(){
-    try{ return localStorage.getItem(INFO_DISMISS_KEY) === '1'; }
-    catch(e){ return false; }
-  }
-  function setInfoDismissed(){
-    try{ localStorage.setItem(INFO_DISMISS_KEY, '1'); }catch(e){}
-  }
-
-  const infoOverlay = document.getElementById('infoModalOverlay');
-  const infoDontShowAgain = document.getElementById('infoDontShowAgain');
-  function openInfoModal(){
-    if(isInfoDismissed() || !infoOverlay) { if(hssCode === null) openHssModal(); return; }
-    infoOverlay.style.display = 'flex';
-  }
-  function closeInfoModal(){
-    if(infoDontShowAgain && infoDontShowAgain.checked) setInfoDismissed();
-    if(infoOverlay) infoOverlay.style.display = 'none';
-    if(hssCode === null) openHssModal();
-  }
-  const infoGotItBtn = document.getElementById('infoGotItBtn');
-  if(infoGotItBtn) infoGotItBtn.addEventListener('click', closeInfoModal);
-  if(infoOverlay) infoOverlay.addEventListener('click', (e)=>{ if(e.target === infoOverlay) closeInfoModal(); });
-
-  const aboutOverlay = document.getElementById('aboutModalOverlay');
-  const aboutBtn = document.getElementById('aboutBtn');
-  const aboutCloseBtn = document.getElementById('aboutCloseBtn');
-  function openAboutModal(){ if(aboutOverlay) aboutOverlay.style.display = 'flex'; }
-  function closeAboutModal(){ if(aboutOverlay) aboutOverlay.style.display = 'none'; }
-  if(aboutBtn) aboutBtn.addEventListener('click', openAboutModal);
-  if(aboutCloseBtn) aboutCloseBtn.addEventListener('click', closeAboutModal);
-  if(aboutOverlay) aboutOverlay.addEventListener('click', (e)=>{ if(e.target === aboutOverlay) closeAboutModal(); });
 
   const hssOverlay = document.getElementById('hssModalOverlay');
   const hssOptionsWrap = document.getElementById('hssOptions');
@@ -430,7 +343,7 @@
 
   document.getElementById('hssBtn').addEventListener('click', openHssModal);
   document.getElementById('hssSkipBtn').addEventListener('click', async ()=>{
-    if(hssCode === null) hssCode = ""; 
+    if(hssCode === null) hssCode = ""; // only mark as "explicitly skipped" if never chosen
     await persistHss();
     updateHssButton();
     closeHssModal();
@@ -745,7 +658,7 @@
       <div class="hero-main">
         <div class="hero-tile ${s.type}">
           <div class="code">${tileCode(s.code)}</div>
-          <div class="kind">${s.tag || s.type}</div>
+          <div class="kind">${s.type}</div>
         </div>
         <div class="hero-info">
           <div class="hero-title"><span class="hero-code">${s.code}</span>${nameSpan(s.code,'hero-name')}</div>
@@ -835,7 +748,7 @@
           <div class="cc-top">
             <span class="cc-code">${s.code}</span>
             ${nameSpan(s.code,'cc-name')}
-            <span class="cc-tag ${s.type}">${s.tag || s.type}</span>
+            <span class="cc-tag ${s.type}">${s.type}</span>
           </div>
           <div class="cc-meta">${fmtHM(s.start)}–${fmtHM(s.end)} · ${s.room}</div>
           ${statusLine}
@@ -953,147 +866,6 @@
     updateBackupMeta();
   }
 
-  function renderCreditsView(){
-    const codes = activeCourseCodes();
-    let totalCredits = 0;
-    const grid = document.getElementById('creditsGrid');
-    if(!grid) return;
-    grid.innerHTML = codes.map(code=>{
-      const cr = COURSE_CREDITS[code];
-      if(cr) totalCredits += cr.c;
-      const cat = courseCategory(code);
-      const body = cr ? `
-        <div class="credit-ltpc">
-          <div class="ltpc-box"><span class="v">${cr.l}</span><span class="k">L</span></div>
-          <div class="ltpc-box"><span class="v">${cr.t}</span><span class="k">T</span></div>
-          <div class="ltpc-box"><span class="v">${cr.p}</span><span class="k">P</span></div>
-          <div class="ltpc-box credit"><span class="v">${cr.c}</span><span class="k">Credits</span></div>
-        </div>` : `<div class="credit-missing">Credit details not available yet</div>`;
-      return `
-      <div class="credit-card">
-        <div class="credit-top">
-          <span class="credit-dot ${cat}"></span>
-          <span class="stat-code">${code}</span>
-          ${nameSpan(code,'credit-name')}
-        </div>
-        ${body}
-      </div>`;
-    }).join("");
-    const totalEl = document.getElementById('creditsTotalVal');
-    if(totalEl) totalEl.textContent = totalCredits ? (Math.round(totalCredits*100)/100) : '—';
-  }
-
-  let spiCourses = []; 
-
-  function renderSpiView(){
-    const rows = document.getElementById('spiGradeRows');
-    if(!rows) return;
-    spiCourses = activeCourseCodes().filter(code => COURSE_CREDITS[code]);
-    rows.innerHTML = spiCourses.map((code, i)=>{
-      const cr = COURSE_CREDITS[code];
-      return `
-      <div class="spi-row">
-        <div class="spi-row-name">${courseLabel(code)}<small>${code}</small></div>
-        <div class="spi-row-credit">${cr.c}cr</div>
-        <select id="spiG${i}">
-          <option value="">—</option>
-          ${Object.keys(GRADE_POINTS).map(g=>`<option value="${g}">${g}</option>`).join('')}
-        </select>
-      </div>`;
-    }).join("");
-    rows.querySelectorAll('select').forEach(sel=>{
-      sel.addEventListener('change', checkSpiReady);
-    });
-    document.getElementById('spiResult').classList.remove('show');
-    checkSpiReady();
-  }
-
-  function checkSpiReady(){
-    const btn = document.getElementById('spiCalcBtn');
-    if(!btn) return;
-    const all = spiCourses.length>0 && spiCourses.every((_, i)=>{
-      const el = document.getElementById('spiG'+i);
-      return el && el.value !== '';
-    });
-    btn.disabled = !all;
-  }
-
-  async function calculateSpi(){
-    if(!currentUser || spiCourses.length===0) return;
-    const all = spiCourses.every((_, i)=>{
-      const el = document.getElementById('spiG'+i); return el && el.value !== '';
-    });
-    if(!all) return;
-
-    let totalCr = 0, weighted = 0;
-    const grades = {};
-    spiCourses.forEach((code, i)=>{
-      const g = document.getElementById('spiG'+i).value;
-      const cr = COURSE_CREDITS[code];
-      grades[code] = g;
-      totalCr += cr.c;
-      weighted += cr.c * GRADE_POINTS[g];
-    });
-    const spi = Math.round((weighted/totalCr)*100)/100;
-    const theme = spiTheme(spi);
-
-    const scoreEl = document.getElementById('spiScoreVal');
-    scoreEl.textContent = spi.toFixed(2);
-    scoreEl.style.color = theme.color;
-
-    const badge = document.getElementById('spiGradeBadge');
-    badge.textContent = theme.label;
-    badge.style.background = 'color-mix(in srgb, ' + theme.color + ' 18%, transparent)';
-    badge.style.border = '1px solid color-mix(in srgb, ' + theme.color + ' 40%, transparent)';
-    badge.style.color = theme.color;
-
-    const segBar = document.getElementById('spiSegBar');
-    segBar.innerHTML = '';
-    const filled = Math.round(spi);
-    for(let i=0;i<10;i++){
-      const seg = document.createElement('div');
-      seg.className = 'spi-seg' + (i<filled ? (spi<5 ? ' active-warn' : ' active') : '');
-      segBar.appendChild(seg);
-    }
-
-    const grid = document.getElementById('spiBreakdownGrid');
-    grid.innerHTML = spiCourses.map(code=>{
-      const g = grades[code];
-      return `
-      <div class="spi-brow">
-        <span class="spi-brow-name">${code}</span>
-        <span class="spi-brow-grade" style="color:${GRADE_COLOR_VARS[g]}">${g}</span>
-      </div>`;
-    }).join("");
-
-    document.getElementById('spiResult').classList.add('show');
-    document.getElementById('spiResult').scrollIntoView({ behavior:'smooth', block:'nearest' });
-
-    const msg = document.getElementById('spiSaveMsg');
-    if(!SPI_SHEET_URL){
-      msg.textContent = '';
-      msg.className = 'spi-save-msg';
-      return;
-    }
-    const btn = document.getElementById('spiCalcBtn');
-    btn.disabled = true;
-    msg.textContent = 'Saving…'; msg.className = 'spi-save-msg';
-    try{
-      await fetch(SPI_SHEET_URL, {
-        method: 'POST', mode: 'no-cors',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ roll: currentUser.roll, name: currentUser.name, spi: spi.toFixed(2), grades, submittedAt: new Date().toISOString() })
-      });
-      msg.textContent = '✓ Result saved'; msg.className = 'spi-save-msg ok';
-    }catch(e){
-      msg.textContent = '⚠ Could not save — check connection'; msg.className = 'spi-save-msg err';
-    }finally{
-      checkSpiReady();
-    }
-  }
-
-  document.getElementById('spiCalcBtn').addEventListener('click', calculateSpi);
-
   function renderAttendanceDay(){
     const d = attSelectedDate;
     const dow = d.getDay();
@@ -1114,7 +886,7 @@
       <div class="class-card">
         <div class="tile ${s.type}"><div class="num">${fmtHM(s.start).split(' ')[0]}</div><div class="code">${tileCode(s.code)}</div></div>
         <div class="cc-body">
-          <div class="cc-top"><span class="cc-code">${s.code}</span>${nameSpan(s.code,'cc-name')}<span class="cc-tag ${s.type}">${s.tag || s.type}</span></div>
+          <div class="cc-top"><span class="cc-code">${s.code}</span>${nameSpan(s.code,'cc-name')}<span class="cc-tag ${s.type}">${s.type}</span></div>
           <div class="cc-meta">${fmtHM(s.start)}–${fmtHM(s.end)} · ${s.room}</div>
         </div>
         <div class="mark-group">
@@ -1177,8 +949,6 @@
     renderNowTimeline();
     renderWeek();
     renderAttendanceView();
-    renderCreditsView();
-    renderSpiView();
     renderHero();
   }
 

@@ -36,7 +36,6 @@
   <div class="user-bar">
     <div class="user-hello">Hello, <b id="helloName">Student</b><span class="roll" id="helloRoll"></span><span class="sync-badge" id="syncBadge"></span></div>
     <div class="user-bar-actions">
-      <button class="about-btn" id="aboutBtn">ⓘ About</button>
       <button class="hss-btn" id="hssBtn">HSS: <span id="hssBtnLabel">not set</span></button>
       <button class="logout-btn" id="logoutBtn">Switch user</button>
     </div>
@@ -73,41 +72,9 @@
   </div>
 
   <div class="tabs">
-    <button class="tab-btn" data-view="spi">SPI</button>
     <button class="tab-btn active" data-view="now">Now</button>
     <button class="tab-btn" data-view="week">Week</button>
     <button class="tab-btn" data-view="attendance">Attendance</button>
-    <button class="tab-btn" data-view="credits">Credits</button>
-  </div>
-
-  <div class="view" id="view-spi">
-    <div class="spi-intro">
-      <div class="spi-intro-title">Calculate your SPI</div>
-      <div class="spi-intro-sub">Pick a grade for each of your courses this semester — pulled from your own course list, credits and all.</div>
-    </div>
-    <div class="spi-grades" id="spiGradeRows"></div>
-    <button class="spi-btn" id="spiCalcBtn" disabled>
-      <span id="spiBtnLabel">Calculate SPI</span>
-    </button>
-
-    <div class="spi-result" id="spiResult">
-      <div class="spi-result-top">
-        <div class="spi-result-label-row">
-          <span class="spi-result-label">SPI Score</span>
-          <span class="spi-grade-tag" id="spiGradeBadge"></span>
-        </div>
-        <div class="spi-score-row">
-          <div class="spi-score" id="spiScoreVal">—</div>
-          <div class="spi-denom">/ 10</div>
-        </div>
-        <div class="spi-seg-bar" id="spiSegBar"></div>
-      </div>
-      <div class="spi-result-bottom">
-        <div class="spi-breakdown-title">Subject breakdown</div>
-        <div class="spi-breakdown-grid" id="spiBreakdownGrid"></div>
-        <div class="spi-save-msg" id="spiSaveMsg"></div>
-      </div>
-    </div>
   </div>
 
   <div class="view active" id="view-now">
@@ -145,19 +112,6 @@
     </div>
   </div>
 
-  <div class="view" id="view-credits">
-    <div class="overall-bar" id="creditsTotalBar">
-      <div class="overall-top">
-        <div>Total credits this semester</div>
-        <div class="big" id="creditsTotalVal">—</div>
-      </div>
-      <div style="font-size:11.5px; color:var(--text-faint); font-family:var(--mono); margin-top:8px;">
-        L = Lecture hrs/wk · T = Tutorial hrs/wk · P = Practical hrs/wk
-      </div>
-    </div>
-    <div class="credits-grid" id="creditsGrid"></div>
-  </div>
-
   <footer>
       Present ✓ · Absent ✕ · Cancelled ⊘<br>
     <b>Attendance is saved to your personal profile.</b>
@@ -174,53 +128,6 @@
     <div class="modal-sub">This adds your elective's 2–3 PM session to your personal timetable and attendance tracker. You can change this anytime from the "HSS" button.</div>
     <div class="hss-options" id="hssOptions"></div>
     <button class="modal-skip" id="hssSkipBtn">Skip for now</button>
-  </div>
-</div>
-
-<div class="modal-overlay" id="infoModalOverlay" style="display:none;">
-  <div class="modal-card">
-    <div class="modal-title">How to mark attendance</div>
-    <div class="modal-sub">
-      <div class="info-step">
-        <span class="info-btn-demo p">✓</span>
-        <span class="info-text">Tap the tick <b>once</b> to mark yourself Present for a session — no need to tap again.</span>
-      </div>
-      <div class="info-step">
-        <span class="info-btn-demo a">✕</span>
-        <span class="info-text">Tap the cross to mark Absent, or the <span class="info-inline-icon c">⊘</span> circle to mark a class as Cancelled.</span>
-      </div>
-      <div class="info-step">
-        <span class="info-btn-demo neutral">?</span>
-        <span class="info-text">To check whether a session is already marked, open the <b>Attendance</b> tab — the button you tapped stays highlighted there.</span>
-      </div>
-    </div>
-    <label class="modal-checkbox-row">
-      <input type="checkbox" id="infoDontShowAgain" />
-      <span>Don't show this again</span>
-    </label>
-    <button class="modal-skip" id="infoGotItBtn">Got it</button>
-  </div>
-</div>
-
-<div class="modal-overlay" id="aboutModalOverlay" style="display:none;">
-  <div class="modal-card">
-    <div class="modal-title">Know more about this page</div>
-    <div class="modal-sub">A quick tour of what's here, beyond just your timetable.</div>
-    <div class="feature-list">
-      <div class="feature-item">
-        <span class="feature-tag spi">SPI</span>
-        <span class="info-text"><b>SPI Calculator</b> — open the <b>SPI</b> tab, pick a grade for each of your courses this semester, then tap <b>Calculate SPI</b> once you're done. Your SPI out of 10 shows up instantly, along with a subject-by-subject breakdown.</span>
-      </div>
-      <div class="feature-item">
-        <span class="feature-tag cr">CR</span>
-        <span class="info-text"><b>Credits</b> — the <b>Credits</b> tab lists the L-T-P (Lecture/Tutorial/Practical) split and credit value for every course this semester, plus your total credit load at the top.</span>
-      </div>
-      <div class="feature-item">
-        <span class="feature-tag at">✓</span>
-        <span class="info-text"><b>Attendance</b> — mark Present, Absent, or Cancelled from the <b>Now</b> or <b>Week</b> view with one tap, then track your overall and subject-wise percentage in the <b>Attendance</b> tab.</span>
-      </div>
-    </div>
-    <button class="modal-skip" id="aboutCloseBtn">Got it</button>
   </div>
 </div>
 
