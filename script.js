@@ -849,7 +849,7 @@
       let statusLine = "";
       if(isOngoing) statusLine = `<div class="cc-status live">● in progress</div>`;
       else if(isDone) statusLine = `<div class="cc-status">finished</div>`;
-      else if(dayIsOver) statusLine = `<div class="cc-status">day over · edit in Attendance tab</div>`;
+      else if(dayIsOver) statusLine = `<div class="cc-status">Locked · can still edit in Attendance tab</div>`;
       else statusLine = `<div class="cc-status">upcoming</div>`;
 
       return `
