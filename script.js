@@ -68,6 +68,10 @@
     return "lecture";
   }
 
+  // Courses that have both a lecture and a lab component and should get
+  // separate attendance tracking/stat-cards for each (theory vs lab).
+  const LAB_SPLIT_COURSES = new Set(["CB2102", "CB2103"]); // Fluid Mechanics, Heat Transfer
+
   const HSS_START = tm(14,0), HSS_END = tm(15,0);
   const HSS_ELECTIVES = [
     { code:"HS2110", slot:6,  sessions:[{day:3,room:"LT103"},{day:4,room:"LT103"},{day:5,room:"LT103"}] }, // Wed/Thu/Fri
@@ -112,6 +116,28 @@
     if(hssCode && HSS_MAP[hssCode]) codes.push(hssCode);
     if(currentUser && isMbaRoll(currentUser.roll)) codes.push(MBA_COURSE.code);
     return codes;
+  }
+
+  // Attendance is tracked per "stat group": most courses are a single group,
+  // but courses in LAB_SPLIT_COURSES get split into a theory group and a lab
+  // group, each with its own stat-card and percentage.
+  function statGroupsForActiveCourses(){
+    const groups = [];
+    activeCourseCodes().forEach(code=>{
+      if(LAB_SPLIT_COURSES.has(code)){
+        groups.push({ key: code+':theory', code, splitType:'lecture', label:'Theory' });
+        groups.push({ key: code+':lab',    code, splitType:'lab',     label:'Lab' });
+      } else {
+        groups.push({ key: code, code, splitType:null, label:null });
+      }
+    });
+    return groups;
+  }
+
+  // Which stat group a given marked session belongs to.
+  function statKeyForSession(code, sessionType){
+    if(LAB_SPLIT_COURSES.has(code)) return sessionType==='lab' ? code+':lab' : code+':theory';
+    return code;
   }
 
   const GRADE_POINTS = { AA:10, AB:9, BB:8, BC:7, CC:6, CD:5, DD:4, F:0 };
@@ -1105,15 +1131,34 @@
 
   function computeStats(){
     const stats = {};
-    activeCourseCodes().forEach(c=> stats[c] = {present:0, total:0});
+    statGroupsForActiveCourses().forEach(g=> stats[g.key] = {present:0, total:0});
     let totalPresent=0, totalMarked=0;
+
+    // For courses that split lab/theory we need to know which session TYPE
+    // each marked key corresponds to (the key itself only has date|code|start).
+    // Build that lookup once, per date actually present in `attendance`.
+    const datesNeeded = new Set();
+    Object.keys(attendance).forEach(key=>{
+      const [dateIso, code] = key.split("|");
+      if(LAB_SPLIT_COURSES.has(code)) datesNeeded.add(dateIso);
+    });
+    const typeByKey = {};
+    datesNeeded.forEach(iso=>{
+      const [y,m,d] = iso.split('-').map(Number);
+      const date = new Date(y, m-1, d);
+      scheduleForDate(date).forEach(s=>{
+        typeByKey[markKeyFor(iso, s)] = s.type;
+      });
+    });
+
     Object.keys(attendance).forEach(key=>{
       const [, code] = key.split("|");
       const val = attendance[key];
       if(val==='c') return;
-      if(!stats[code]) stats[code]={present:0,total:0};
-      stats[code].total++;
-      if(val==='p'){ stats[code].present++; totalPresent++; }
+      const statKey = statKeyForSession(code, typeByKey[key]);
+      if(!stats[statKey]) stats[statKey]={present:0,total:0};
+      stats[statKey].total++;
+      if(val==='p'){ stats[statKey].present++; totalPresent++; }
       totalMarked++;
     });
     return { stats, totalPresent, totalMarked };
@@ -1168,17 +1213,20 @@
     `;
 
     const statGrid = document.getElementById('statGrid');
-    statGrid.innerHTML = activeCourseCodes().map(code=>{
-      const st = stats[code] || {present:0,total:0};
+    statGrid.innerHTML = statGroupsForActiveCourses().map(g=>{
+      const st = stats[g.key] || {present:0,total:0};
       const pct = st.total ? Math.round(st.present/st.total*100) : null;
       const color = pct===null ? 'var(--text-faint)' : pct>=75 ? 'var(--green)' : pct>=60 ? 'var(--amber)' : 'var(--rose)';
       const warn = pct!==null && pct<75;
       const proj = attendanceProjection(st.present, st.total);
+      const nameHtml = g.label
+        ? `<span class="stat-name">${courseLabel(g.code)} <span class="stat-split-tag">${g.label}</span></span>`
+        : nameSpan(g.code,'stat-name');
       return `
       <div class="stat-card ${warn?'warn':''}">
         <div class="gauge">${gaugeSVG(pct||0, color)}<div class="pct" style="color:${color}">${pct===null?'–':pct+'%'}</div></div>
         <div>
-          <div class="code"><span class="stat-code">${code}</span>${nameSpan(code,'stat-name')}</div>
+          <div class="code"><span class="stat-code">${g.code}</span>${nameHtml}</div>
           <div class="sub">${st.present}/${st.total||0} sessions</div>
           ${proj ? `<div class="sub-proj" style="color:${projColor(proj.type)}">${proj.text}</div>` : ''}
         </div>
