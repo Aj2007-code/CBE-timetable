@@ -177,28 +177,24 @@
   </div>
 </div>
 
-<div class="modal-overlay" id="infoModalOverlay" style="display:none;">
+<div class="modal-overlay" id="dayEditAnnounceOverlay" style="display:none;">
   <div class="modal-card">
-    <div class="modal-title">How to mark attendance</div>
+    <div class="modal-title">New: edit your own day</div>
     <div class="modal-sub">
       <div class="info-step">
-        <span class="info-btn-demo p">✓</span>
-        <span class="info-text">Tap the tick <b>once</b> to mark yourself Present for a session — no need to tap again.</span>
+        <span class="info-btn-demo neutral">+</span>
+        <span class="info-text">Got an extra or makeup class? Open the <b>Attendance</b> tab, pick the date, and tap <b>+ Add a class for this day</b>.</span>
       </div>
       <div class="info-step">
-        <span class="info-btn-demo a">✕</span>
-        <span class="info-text">Tap the cross to mark Absent, or the <span class="info-inline-icon c">⊘</span> circle to mark a class as Cancelled.</span>
+        <span class="info-btn-demo neutral">🗑</span>
+        <span class="info-text">Class cancelled and won't happen? Tap <b>remove for this day only</b> on it — it only disappears from your own timetable, no one else's.</span>
       </div>
       <div class="info-step">
-        <span class="info-btn-demo neutral">?</span>
-        <span class="info-text">To check whether a session is already marked, open the <b>Attendance</b> tab — the button you tapped stays highlighted there.</span>
+        <span class="info-btn-demo neutral">↺</span>
+        <span class="info-text">Changed your mind? Removed classes show up under <b>Removed for this day</b> with a one-tap restore.</span>
       </div>
     </div>
-    <label class="modal-checkbox-row">
-      <input type="checkbox" id="infoDontShowAgain" />
-      <span>Don't show this again</span>
-    </label>
-    <button class="modal-skip" id="infoGotItBtn">Got it</button>
+    <button class="modal-skip" id="dayEditAnnounceGotItBtn">Got it</button>
   </div>
 </div>
 
@@ -219,10 +215,15 @@
         <span class="feature-tag at">✓</span>
         <span class="info-text"><b>Attendance</b> — mark Present, Absent, or Cancelled from the <b>Now</b> or <b>Week</b> view with one tap, then track your overall and subject-wise percentage in the <b>Attendance</b> tab.</span>
       </div>
+      <div class="feature-item">
+        <span class="feature-tag ed">ED</span>
+        <span class="info-text"><b>Edit your day</b> — in the <b>Attendance</b> tab, pick any date to add an extra/makeup class or remove one that's been cancelled — just for your own timetable, the shared schedule never changes. Removed classes can be restored anytime.</span>
+      </div>
     </div>
     <button class="modal-skip" id="aboutCloseBtn">Got it</button>
   </div>
 </div>
+
 
 <div class="modal-overlay" id="addClassModalOverlay" style="display:none;">
   <div class="modal-card">

@@ -369,32 +369,31 @@
     updateBackupCopy();
     updateBackupMeta();
     updateHssButton();
-    openInfoModal();
+    openDayEditAnnounceModal();
   }
 
-  const INFO_DISMISS_KEY = 'cbe-timetable:hideAttendanceInfo';
-  function isInfoDismissed(){
-    try{ return localStorage.getItem(INFO_DISMISS_KEY) === '1'; }
+  const DAYEDIT_DISMISS_KEY = 'cbe-timetable:hideDayEditAnnounce';
+  function isDayEditAnnounceDismissed(){
+    try{ return localStorage.getItem(DAYEDIT_DISMISS_KEY) === '1'; }
     catch(e){ return false; }
   }
-  function setInfoDismissed(){
-    try{ localStorage.setItem(INFO_DISMISS_KEY, '1'); }catch(e){}
+  function setDayEditAnnounceDismissed(){
+    try{ localStorage.setItem(DAYEDIT_DISMISS_KEY, '1'); }catch(e){}
   }
 
-  const infoOverlay = document.getElementById('infoModalOverlay');
-  const infoDontShowAgain = document.getElementById('infoDontShowAgain');
-  function openInfoModal(){
-    if(isInfoDismissed() || !infoOverlay) { if(hssCode === null) openHssModal(); return; }
-    infoOverlay.style.display = 'flex';
+  const dayEditAnnounceOverlay = document.getElementById('dayEditAnnounceOverlay');
+  function openDayEditAnnounceModal(){
+    if(isDayEditAnnounceDismissed() || !dayEditAnnounceOverlay){ if(hssCode === null) openHssModal(); return; }
+    dayEditAnnounceOverlay.style.display = 'flex';
   }
-  function closeInfoModal(){
-    if(infoDontShowAgain && infoDontShowAgain.checked) setInfoDismissed();
-    if(infoOverlay) infoOverlay.style.display = 'none';
+  function closeDayEditAnnounceModal(){
+    setDayEditAnnounceDismissed();
+    if(dayEditAnnounceOverlay) dayEditAnnounceOverlay.style.display = 'none';
     if(hssCode === null) openHssModal();
   }
-  const infoGotItBtn = document.getElementById('infoGotItBtn');
-  if(infoGotItBtn) infoGotItBtn.addEventListener('click', closeInfoModal);
-  if(infoOverlay) infoOverlay.addEventListener('click', (e)=>{ if(e.target === infoOverlay) closeInfoModal(); });
+  const dayEditAnnounceGotItBtn = document.getElementById('dayEditAnnounceGotItBtn');
+  if(dayEditAnnounceGotItBtn) dayEditAnnounceGotItBtn.addEventListener('click', closeDayEditAnnounceModal);
+  if(dayEditAnnounceOverlay) dayEditAnnounceOverlay.addEventListener('click', (e)=>{ if(e.target === dayEditAnnounceOverlay) closeDayEditAnnounceModal(); });
 
   const aboutOverlay = document.getElementById('aboutModalOverlay');
   const aboutBtn = document.getElementById('aboutBtn');
