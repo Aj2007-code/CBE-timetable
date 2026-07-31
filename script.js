@@ -188,6 +188,20 @@
       });
       if(!res.ok) throw new Error('supabase set failed: ' + res.status);
     }
+    async function sbGetDayOverrides(roll){
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/cbe_day_overrides?roll=eq.${encodeURIComponent(roll)}&select=overrides`, { headers: sbHeaders() });
+      if(!res.ok) throw new Error('supabase get failed: ' + res.status);
+      const rows = await res.json();
+      return rows[0] ? JSON.stringify(rows[0].overrides || {}) : null;
+    }
+    async function sbSetDayOverrides(roll, name, valueStr){
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/cbe_day_overrides`, {
+        method: 'POST',
+        headers: Object.assign(sbHeaders(), { Prefer: 'resolution=merge-duplicates' }),
+        body: JSON.stringify([{ roll, name, overrides: JSON.parse(valueStr), updated_at: new Date().toISOString() }])
+      });
+      if(!res.ok) throw new Error('supabase set failed: ' + res.status);
+    }
     async function sbGetCourseNames(){
       const res = await fetch(`${SUPABASE_URL}/rest/v1/cbe_course_names?id=eq.1&select=names`, { headers: sbHeaders() });
       if(!res.ok) throw new Error('supabase get failed: ' + res.status);
@@ -212,12 +226,14 @@
           catch(e){ return null; }
         }
         if(hasSupabase){
-          if(key.indexOf('attendance:') === 0 || key === 'course-names' || key.indexOf('hss:') === 0){
+          if(key.indexOf('attendance:') === 0 || key === 'course-names' || key.indexOf('hss:') === 0 || key.indexOf('dayoverrides:') === 0){
             try{
               const raw = key.indexOf('attendance:') === 0
                 ? await sbGetAttendance(key.slice('attendance:'.length))
                 : key.indexOf('hss:') === 0
                 ? await sbGetHss(key.slice('hss:'.length))
+                : key.indexOf('dayoverrides:') === 0
+                ? await sbGetDayOverrides(key.slice('dayoverrides:'.length))
                 : await sbGetCourseNames();
               if(raw !== null) lsWrite(key, raw); 
               return raw === null ? lsRead(key) : { key, value: raw };
@@ -235,10 +251,11 @@
           try{ const r = await window.storage.set(key, value, shared); return r ? { key, value, synced:true } : { key, value, synced:false }; }
           catch(e){ return { key, value, synced:false }; }
         }
-        if(hasSupabase && (key.indexOf('attendance:') === 0 || key === 'course-names' || key.indexOf('hss:') === 0)){
+        if(hasSupabase && (key.indexOf('attendance:') === 0 || key === 'course-names' || key.indexOf('hss:') === 0 || key.indexOf('dayoverrides:') === 0)){
           try{
             if(key.indexOf('attendance:') === 0) await sbSetAttendance(key.slice('attendance:'.length), currentUser ? currentUser.name : '', value);
             else if(key.indexOf('hss:') === 0) await sbSetHss(key.slice('hss:'.length), value);
+            else if(key.indexOf('dayoverrides:') === 0) await sbSetDayOverrides(key.slice('dayoverrides:'.length), currentUser ? currentUser.name : '', value);
             else await sbSetCourseNames(value);
             return { key, value, synced:true };
           }catch(e){
@@ -261,6 +278,7 @@
 
   let attendance = {};
   let courseNames = {};
+  let dayOverrides = {}; // { "YYYY-MM-DD": { removed:["code|start|room",...], extra:[{id,code,start,end,room,type,tag,name}] } }
   let currentUser = null; 
 
   const loginScreen = document.getElementById('loginScreen');
@@ -438,6 +456,86 @@
   });
   hssOverlay.addEventListener('click', (e)=>{ if(e.target === hssOverlay) closeHssModal(); });
 
+  const addClassOverlay = document.getElementById('addClassModalOverlay');
+  let addClassTargetDate = null;
+
+  function timeStrToMinutes(str){
+    if(!str) return null;
+    const parts = str.split(':');
+    if(parts.length !== 2) return null;
+    const h = Number(parts[0]), m = Number(parts[1]);
+    if(isNaN(h) || isNaN(m)) return null;
+    return h*60+m;
+  }
+
+  function openAddClassModal(date){
+    addClassTargetDate = date;
+    const { main } = fmtDayLabel(date);
+    document.getElementById('addClassDateLabel').textContent = `For ${main} · only visible on your own timetable, the shared schedule doesn't change.`;
+
+    const sel = document.getElementById('addClassCourseSelect');
+    const codes = [...new Set(activeCourseCodes())];
+    sel.innerHTML = codes.map(c=>`<option value="${c}">${c} — ${courseLabel(c)}</option>`).join('')
+      + `<option value="__custom__">Other / custom…</option>`;
+    document.getElementById('addClassCustomWrap').style.display = 'none';
+    document.getElementById('addClassCustomCode').value = '';
+    document.getElementById('addClassCustomName').value = '';
+    document.getElementById('addClassStart').value = '';
+    document.getElementById('addClassEnd').value = '';
+    document.getElementById('addClassRoom').value = '';
+    document.getElementById('addClassType').value = 'lecture';
+    document.getElementById('addClassNote').value = '';
+    document.getElementById('addClassError').classList.remove('show');
+
+    addClassOverlay.style.display = 'flex';
+  }
+  function closeAddClassModal(){ addClassOverlay.style.display = 'none'; }
+
+  const addClassCourseSelect = document.getElementById('addClassCourseSelect');
+  if(addClassCourseSelect){
+    addClassCourseSelect.addEventListener('change', (e)=>{
+      document.getElementById('addClassCustomWrap').style.display = e.target.value==='__custom__' ? 'block' : 'none';
+    });
+  }
+  const addClassCancelBtn = document.getElementById('addClassCancelBtn');
+  if(addClassCancelBtn) addClassCancelBtn.addEventListener('click', closeAddClassModal);
+  if(addClassOverlay) addClassOverlay.addEventListener('click', (e)=>{ if(e.target === addClassOverlay) closeAddClassModal(); });
+
+  const addClassSaveBtn = document.getElementById('addClassSaveBtn');
+  if(addClassSaveBtn){
+    addClassSaveBtn.addEventListener('click', ()=>{
+      const sel = document.getElementById('addClassCourseSelect');
+      const isCustom = sel.value === '__custom__';
+      const customCode = document.getElementById('addClassCustomCode').value.trim().toUpperCase();
+      const customName = document.getElementById('addClassCustomName').value.trim();
+      const code = isCustom ? customCode : sel.value;
+      const start = timeStrToMinutes(document.getElementById('addClassStart').value);
+      const end = timeStrToMinutes(document.getElementById('addClassEnd').value);
+      const room = document.getElementById('addClassRoom').value.trim();
+      const type = document.getElementById('addClassType').value;
+      const note = document.getElementById('addClassNote').value.trim();
+
+      const errEl = document.getElementById('addClassError');
+      let errMsg = '';
+      if(!code) errMsg = 'Pick a course, or enter a custom code.';
+      else if(start===null || end===null) errMsg = 'Please set a start and end time.';
+      else if(end<=start) errMsg = 'End time must be after the start time.';
+      else if(!room) errMsg = 'Please enter a room (or "Online").';
+      if(errMsg){ errEl.textContent = errMsg; errEl.classList.add('show'); return; }
+
+      const session = {
+        id: 'x'+Date.now().toString(36)+Math.random().toString(36).slice(2,6),
+        code, start, end, room, type
+      };
+      if(note) session.tag = note;
+      if(isCustom && customName) session.name = customName;
+
+      addExtraSessionForDate(addClassTargetDate, session);
+      closeAddClassModal();
+      renderAll();
+    });
+  }
+
   function updateStorageBanner(){
     const banner = document.getElementById('storageBanner');
     if(!banner) return;
@@ -598,11 +696,13 @@
   }
 
   function hssKey(){ return 'hss:' + currentUser.roll; }
+  function dayOverridesKey(){ return 'dayoverrides:' + currentUser.roll; }
 
   async function loadUserData(){
     attendance = {};
     courseNames = {};
     hssCode = null;
+    dayOverrides = {};
     try{
       const a = await Store.get(attKey(), true);
       if(a && a.value) attendance = JSON.parse(a.value);
@@ -615,6 +715,10 @@
       const h = await Store.get(hssKey(), true);
       if(h && typeof h.value === 'string') hssCode = h.value; 
     }catch(e){ /* never chosen yet — fine, stays null */ }
+    try{
+      const o = await Store.get(dayOverridesKey(), true);
+      if(o && o.value) dayOverrides = JSON.parse(o.value);
+    }catch(e){ /* no personal day edits yet — fine */ }
     rebuildPersonalSchedule();
     if(migrateOldCodes()){
       await persistAttendance();
@@ -663,11 +767,24 @@
     catch(e){ console.warn("save failed", e); lastSyncOk = false; lastSyncAt = new Date(); updateSyncBadge(); }
   }
 
+  async function persistDayOverrides(){
+    if(!currentUser){ flashSaveToast(false, 'Not saved — no user'); return; }
+    try{
+      const res = await Store.set(dayOverridesKey(), JSON.stringify(dayOverrides), true);
+      if(!res){ flashSaveToast(false, 'Save failed — storage unavailable'); }
+      else if(res.synced === false){ flashSaveToast(true, 'Saved locally — will sync when online'); }
+      else{ flashSaveToast(true, 'Day updated'); }
+    }catch(e){ console.warn('day override save failed', e); flashSaveToast(false); }
+  }
+
   function courseLabel(code){ return COURSE_NAMES[code] || courseNames[code] || code; }
   function tileCode(code){ return code.replace(/^CB|^HS/, ''); }
 
-  function nameSpan(code, cls){
-    return `<span class="${cls}">${courseLabel(code)}</span>`;
+  function nameSpan(codeOrSession, cls){
+    const isObj = codeOrSession && typeof codeOrSession === 'object';
+    const code = isObj ? codeOrSession.code : codeOrSession;
+    const label = (isObj && codeOrSession.name) ? codeOrSession.name : courseLabel(code);
+    return `<span class="${cls}">${label}</span>`;
   }
 
   function pad(n){ return n<10 ? "0"+n : ""+n; }
@@ -693,10 +810,81 @@
 
   function scheduleForDay(dow){ return PERSONAL_SCHEDULE.filter(s=>s.day===dow); }
 
+  // Identifies a recurring-schedule session instance well enough to remember
+  // "skip this one on this date" without needing a global session id.
+  function sessionSig(s){ return s.code+"|"+s.start+"|"+s.room; }
+
+  function ensureDayOverride(iso){
+    if(!dayOverrides[iso]) dayOverrides[iso] = { removed:[], extra:[] };
+    if(!dayOverrides[iso].removed) dayOverrides[iso].removed = [];
+    if(!dayOverrides[iso].extra) dayOverrides[iso].extra = [];
+    return dayOverrides[iso];
+  }
+  function cleanupDayOverride(iso){
+    const ov = dayOverrides[iso];
+    if(ov && (!ov.removed || !ov.removed.length) && (!ov.extra || !ov.extra.length)) delete dayOverrides[iso];
+  }
+
+  // The actual per-date schedule a student sees: the shared recurring pattern
+  // for that weekday, with their own personal removals/additions for that
+  // exact date layered on top. Never mutates SCHEDULE/PERSONAL_SCHEDULE.
+  function scheduleForDate(date){
+    const dow = date.getDay();
+    const iso = isoDate(date);
+    const base = scheduleForDay(dow);
+    const ov = dayOverrides[iso];
+    let list = base;
+    if(ov && ov.removed && ov.removed.length){
+      const removedSet = new Set(ov.removed);
+      list = list.filter(s => !removedSet.has(sessionSig(s)));
+    }
+    if(ov && ov.extra && ov.extra.length){
+      list = list.concat(ov.extra.map(e => Object.assign({}, e, { day: dow, isExtra: true })));
+    }
+    return list.slice().sort((a,b)=> a.start-b.start);
+  }
+
+  // Base (shared-schedule) sessions the student has personally hidden for a
+  // given date, so the "Removed for this day" list can offer a restore.
+  function removedBaseSessionsForDate(date){
+    const dow = date.getDay();
+    const iso = isoDate(date);
+    const ov = dayOverrides[iso];
+    if(!ov || !ov.removed || !ov.removed.length) return [];
+    const removedSet = new Set(ov.removed);
+    return scheduleForDay(dow).filter(s => removedSet.has(sessionSig(s)));
+  }
+
+  function removeSessionForDateBySig(date, sig){
+    const ov = ensureDayOverride(isoDate(date));
+    if(!ov.removed.includes(sig)) ov.removed.push(sig);
+    persistDayOverrides();
+  }
+  function restoreSessionForDate(date, sig){
+    const iso = isoDate(date);
+    const ov = dayOverrides[iso];
+    if(!ov) return;
+    ov.removed = (ov.removed||[]).filter(x=>x!==sig);
+    cleanupDayOverride(iso);
+    persistDayOverrides();
+  }
+  function addExtraSessionForDate(date, session){
+    const ov = ensureDayOverride(isoDate(date));
+    ov.extra.push(session);
+    persistDayOverrides();
+  }
+  function deleteExtraSessionForDate(date, id){
+    const iso = isoDate(date);
+    const ov = dayOverrides[iso];
+    if(!ov) return;
+    ov.extra = (ov.extra||[]).filter(e=>e.id!==id);
+    cleanupDayOverride(iso);
+    persistDayOverrides();
+  }
+
   function findNext(){
-    const dow = now.getDay();
     const nowMin = now.getHours()*60 + now.getMinutes() + now.getSeconds()/60;
-    const todays = scheduleForDay(dow);
+    const todays = scheduleForDate(now);
     for(const s of todays){
       if(nowMin >= s.start && nowMin < s.end){
         return { s, offsetDays:0, status:"ongoing" };
@@ -705,8 +893,7 @@
     let upcoming = todays.filter(s=>s.start > nowMin).sort((a,b)=>a.start-b.start)[0];
     if(upcoming) return { s:upcoming, offsetDays:0, status:"upcoming" };
     for(let off=1; off<=7; off++){
-      const d = (dow+off)%7;
-      const list = scheduleForDay(d).sort((a,b)=>a.start-b.start);
+      const list = scheduleForDate(addDays(now, off)).sort((a,b)=>a.start-b.start);
       if(list.length) return { s:list[0], offsetDays:off, status:"upcoming" };
     }
     return null;
@@ -748,7 +935,7 @@
           <div class="kind">${s.tag || s.type}</div>
         </div>
         <div class="hero-info">
-          <div class="hero-title"><span class="hero-code">${s.code}</span>${nameSpan(s.code,'hero-name')}</div>
+          <div class="hero-title"><span class="hero-code">${s.code}</span>${nameSpan(s,'hero-name')}</div>
           <div class="hero-meta">${dayLabel} · ${fmtHM(s.start)}–${fmtHM(s.end)} · <b>${s.room}</b></div>
         </div>
         <div class="hero-countdown ${status==='ongoing'?'ongoing':''}">
@@ -766,7 +953,7 @@
       pct = Math.max(0, Math.min(100,pct));
       document.getElementById('buretteFill').style.width = pct+"%";
       const marksWrap = document.getElementById('buretteMarks');
-      marksWrap.innerHTML = scheduleForDay(now.getDay()).map(cls=>{
+      marksWrap.innerHTML = scheduleForDate(now).map(cls=>{
         const p = ((cls.start-dayStart)/(dayEnd-dayStart))*100;
         return `<div class="burette-mark" style="left:${p}%"></div>`;
       }).join("");
@@ -780,9 +967,11 @@
     const wrap = document.getElementById('dayRow');
     wrap.innerHTML = "";
     for(let d=1; d<=5; d++){
+      const dateForDay = d===now.getDay() ? now : dateForWeekday(d);
+      const count = scheduleForDate(dateForDay).length;
       const chip=document.createElement('div');
       chip.className='day-chip'+(d===now.getDay()?' today':'')+(d===selectedDow?' selected':'');
-      chip.innerHTML = `${DAY_SHORT[d]}<span class="n">${scheduleForDay(d).length||'—'}</span>`;
+      chip.innerHTML = `${DAY_SHORT[d]}<span class="n">${count||'—'}</span>`;
       chip.onclick=()=>{ selectedDow=d; buildDayRow(); renderNowTimeline(); };
       wrap.appendChild(chip);
     }
@@ -822,18 +1011,16 @@
     const wrap = document.getElementById('nowTimelineWrap');
     const dow = selectedDow===null ? now.getDay() : selectedDow;
     const isToday = dow===now.getDay();
-    const list = scheduleForDay(dow);
-
-    if(dow===0||dow===6){
-      wrap.innerHTML = `<div class="empty-state"><div class="glyph"></div> offline for the weekend.<br>No 2nd-year CBE sessions scheduled.</div>`;
-      return;
-    }
-    if(list.length===0){
-      wrap.innerHTML = `<div class="empty-state"><div class="glyph"></div>Clear bench day — no 2nd-year classes.<br>Good day to catch up on notes.</div>`;
-      return;
-    }
-
     const dateForDow = isToday ? now : dateForWeekday(dow);
+    const list = scheduleForDate(dateForDow);
+
+    if(list.length===0){
+      wrap.innerHTML = (dow===0||dow===6)
+        ? `<div class="empty-state"><div class="glyph"></div> offline for the weekend.<br>No 2nd-year CBE sessions scheduled.</div>`
+        : `<div class="empty-state"><div class="glyph"></div>Clear bench day — no 2nd-year classes.<br>Good day to catch up on notes.</div>`;
+      return;
+    }
+
     const dateIso = isoDate(dateForDow);
     const nowMin = now.getHours()*60+now.getMinutes();
     const dayIsOver = !isToday && startOfDay(dateForDow).getTime() < startOfDay(now).getTime();
@@ -858,8 +1045,9 @@
         <div class="cc-body">
           <div class="cc-top">
             <span class="cc-code">${s.code}</span>
-            ${nameSpan(s.code,'cc-name')}
+            ${nameSpan(s,'cc-name')}
             <span class="cc-tag ${s.type}">${s.tag || s.type}</span>
+            ${s.isExtra ? '<span class="cc-tag added">added</span>' : ''}
           </div>
           <div class="cc-meta">${fmtHM(s.start)}–${fmtHM(s.end)} · ${s.room}</div>
           ${statusLine}
@@ -894,7 +1082,8 @@
     const wrap = document.getElementById('weekGrid');
     let html = "";
     for(let d=1; d<=5; d++){
-      const list = scheduleForDay(d);
+      const dateForDay = d===now.getDay() ? now : dateForWeekday(d);
+      const list = scheduleForDate(dateForDay);
       html += `<div class="week-day">
         <div class="week-day-head"><h3>${DAY_NAMES[d]}</h3><span class="count">${list.length} session${list.length!==1?'s':''}</span></div>
         <div class="week-list">
@@ -903,9 +1092,9 @@
               <span class="t">${fmtHM(s.start)}</span>
               <span class="mid">
                 <span class="dot ${s.type}"></span>
-                <span class="nm-wrap"><span class="nm-code">${s.code}</span>${nameSpan(s.code,'nm')}</span>
+                <span class="nm-wrap"><span class="nm-code">${s.code}</span>${nameSpan(s,'nm')}</span>
               </span>
-              <span class="rm">${s.room}</span>
+              <span class="rm">${s.room}${s.isExtra ? ' · added' : ''}</span>
             </div>`).join("") : `<div style="color:var(--text-faint); font-size:12.5px;">— no sessions —</div>`}
         </div>
       </div>`;
@@ -1142,15 +1331,58 @@
 
   document.getElementById('spiCalcBtn').addEventListener('click', calculateSpi);
 
+  function dayEditControlsHtml(d){
+    const removedList = removedBaseSessionsForDate(d);
+    return `
+      ${removedList.length ? `
+      <div class="removed-list">
+        <div class="removed-title">Removed for this day</div>
+        ${removedList.map(s=>`
+          <div class="removed-item">
+            <span>${s.code} · ${fmtHM(s.start)}</span>
+            <button class="restore-btn" data-sig="${sessionSig(s)}">↺ restore</button>
+          </div>`).join("")}
+      </div>` : ''}
+      <button class="day-edit-btn" id="addExtraClassBtn">+ Add a class for this day</button>
+    `;
+  }
+
+  function bindDayEditControls(d){
+    const wrap = document.getElementById('attendanceDayWrap');
+    wrap.querySelectorAll('.day-edit-remove').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        const isExtra = btn.dataset.extra === '1';
+        if(isExtra){
+          if(!confirm('Delete this class you added? This only affects your own timetable.')) return;
+          deleteExtraSessionForDate(d, btn.dataset.id);
+        } else {
+          if(!confirm("Remove this class for this day only? It'll still show up as usual on other days, and only your own timetable changes.")) return;
+          removeSessionForDateBySig(d, btn.dataset.sig);
+        }
+        renderAll();
+      });
+    });
+    wrap.querySelectorAll('.restore-btn').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        restoreSessionForDate(d, btn.dataset.sig);
+        renderAll();
+      });
+    });
+    const addBtn = document.getElementById('addExtraClassBtn');
+    if(addBtn) addBtn.addEventListener('click', ()=> openAddClassModal(d));
+  }
+
   function renderAttendanceDay(){
     const d = attSelectedDate;
-    const dow = d.getDay();
     const { main, rel } = fmtDayLabel(d);
     document.getElementById('dateLabel').innerHTML = `${main}<span class="rel">${rel}</span>`;
     const wrap = document.getElementById('attendanceDayWrap');
-    const list = scheduleForDay(dow);
-    if(dow===0||dow===6 || list.length===0){
-      wrap.innerHTML = `<div class="empty-state" style="padding:24px;">No 2nd-year sessions on this date.</div>`;
+    const list = scheduleForDate(d);
+    const editControls = dayEditControlsHtml(d);
+
+    if(list.length===0){
+      wrap.innerHTML = `<div class="empty-state" style="padding:24px;">No sessions on this date.</div>` + editControls;
+      bindDayEditControls(d);
       return;
     }
     const dateIso = isoDate(d);
@@ -1158,13 +1390,19 @@
       const key = markKeyFor(dateIso, s);
       const status = attendance[key];
       const locked = !canMarkFromAttendanceTab(d, s);
+      const isExtra = !!s.isExtra;
+      const canRemoveBase = !isExtra && locked; // locked === hasn't started yet, i.e. a future session
+      const removeBtn = isExtra
+        ? `<button class="day-edit-remove" data-extra="1" data-id="${s.id||''}">🗑 delete this class</button>`
+        : (canRemoveBase ? `<button class="day-edit-remove" data-extra="0" data-sig="${sessionSig(s)}">🗑 remove for this day only</button>` : '');
       return `
       <div class="class-card">
         <div class="tile ${s.type}"><div class="num">${fmtHM(s.start).split(' ')[0]}</div><div class="code">${tileCode(s.code)}</div></div>
         <div class="cc-body">
-          <div class="cc-top"><span class="cc-code">${s.code}</span>${nameSpan(s.code,'cc-name')}<span class="cc-tag ${s.type}">${s.tag || s.type}</span></div>
+          <div class="cc-top"><span class="cc-code">${s.code}</span>${nameSpan(s,'cc-name')}<span class="cc-tag ${s.type}">${s.tag || s.type}</span>${isExtra ? '<span class="cc-tag added">added</span>' : ''}</div>
           <div class="cc-meta">${fmtHM(s.start)}–${fmtHM(s.end)} · ${s.room}</div>
           ${locked ? `<div class="cc-status">not started yet</div>` : ''}
+          ${removeBtn}
         </div>
         <div class="mark-group">
           <button class="mark-btn p ${status==='p'?'active':''}" ${locked?'disabled':''} data-key="${key}" data-val="p" title="Present">✓</button>
@@ -1172,7 +1410,7 @@
           <button class="mark-btn c ${status==='c'?'active':''}" ${locked?'disabled':''} data-key="${key}" data-val="c" title="Cancelled">⊘</button>
         </div>
       </div>`;
-    }).join("");
+    }).join("") + editControls;
 
     wrap.querySelectorAll('.mark-btn').forEach(btn=>{
       btn.addEventListener('click', ()=>{
@@ -1184,6 +1422,7 @@
         renderAttendanceView();
       });
     });
+    bindDayEditControls(d);
   }
 
   document.querySelectorAll('.tab-btn').forEach(btn=>{

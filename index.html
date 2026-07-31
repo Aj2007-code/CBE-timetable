@@ -224,6 +224,63 @@
   </div>
 </div>
 
+<div class="modal-overlay" id="addClassModalOverlay" style="display:none;">
+  <div class="modal-card">
+    <div class="modal-title">Add a class for this day</div>
+    <div class="modal-sub" id="addClassDateLabel">Only visible on your own timetable — the shared schedule doesn't change.</div>
+
+    <div class="form-field">
+      <label for="addClassCourseSelect">Course</label>
+      <select id="addClassCourseSelect"></select>
+    </div>
+    <div class="form-field" id="addClassCustomWrap" style="display:none;">
+      <label for="addClassCustomCode">Custom code</label>
+      <input type="text" id="addClassCustomCode" placeholder="e.g. GL1" maxlength="10" />
+      <label for="addClassCustomName" style="margin-top:10px;">Custom name</label>
+      <input type="text" id="addClassCustomName" placeholder="e.g. Guest Lecture" maxlength="60" />
+      <div class="form-hint">Tip: use a new code so it doesn't affect attendance/credits for an existing course.</div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-field">
+        <label for="addClassStart">Start</label>
+        <input type="time" id="addClassStart" />
+      </div>
+      <div class="form-field">
+        <label for="addClassEnd">End</label>
+        <input type="time" id="addClassEnd" />
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-field">
+        <label for="addClassType">Type</label>
+        <select id="addClassType">
+          <option value="lecture">Lecture</option>
+          <option value="lab">Lab</option>
+          <option value="extra">Extra / Makeup</option>
+        </select>
+      </div>
+      <div class="form-field">
+        <label for="addClassRoom">Room</label>
+        <input type="text" id="addClassRoom" placeholder="R102" maxlength="20" />
+      </div>
+    </div>
+
+    <div class="form-field">
+      <label for="addClassNote">Note (optional)</label>
+      <input type="text" id="addClassNote" placeholder="e.g. Makeup for Monday's lecture" maxlength="60" />
+    </div>
+
+    <div class="addclass-error" id="addClassError">Please fill in the fields above.</div>
+
+    <div class="modal-btn-row">
+      <button class="modal-skip" id="addClassCancelBtn">Cancel</button>
+      <button class="spi-btn" id="addClassSaveBtn" style="flex:1;">Add class</button>
+    </div>
+  </div>
+</div>
+
 <script src="script.js"></script>
 </body>
 </html>
