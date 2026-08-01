@@ -78,6 +78,7 @@
     <button class="tab-btn" data-view="week">Week</button>
     <button class="tab-btn" data-view="attendance">Attendance</button>
     <button class="tab-btn" data-view="credits">Credits</button>
+    <button class="tab-btn" data-view="pyq">PYQ</button>
   </div>
 
   <div class="view" id="view-spi">
@@ -156,6 +157,19 @@
       </div>
     </div>
     <div class="credits-grid" id="creditsGrid"></div>
+  </div>
+
+  <div class="view" id="view-pyq">
+    <div class="pyq-intro">
+      <div class="pyq-intro-top">
+        <div>
+          <div class="pyq-intro-title">Previous Year Questions</div>
+          <div class="pyq-intro-sub">Pick a course to view or download its PYQ papers.</div>
+        </div>
+        <button class="pyq-admin-link" id="pyqAdminBtn">🔒 Admin</button>
+      </div>
+    </div>
+    <div class="pyq-list" id="pyqList"></div>
   </div>
 
   <footer>
@@ -289,6 +303,22 @@
 <button class="chat-fab" id="chatFab" aria-label="Open assistant" style="display:none;">
   <span class="chat-fab-icon">✦</span>
 </button>
+
+<div class="modal-overlay" id="pyqAdminModalOverlay" style="display:none;">
+  <div class="modal-card">
+    <div class="modal-title">Admin access</div>
+    <div class="modal-sub">Only needed to upload or delete PYQ files. Everyone else can already view and download without this.</div>
+    <div class="form-field">
+      <label for="pyqAdminKeyInput">Admin key</label>
+      <input type="password" id="pyqAdminKeyInput" placeholder="••••••••" autocomplete="off" />
+    </div>
+    <div class="addclass-error" id="pyqAdminError">Wrong key — try again.</div>
+    <div class="modal-btn-row">
+      <button class="modal-skip" id="pyqAdminCancelBtn">Cancel</button>
+      <button class="spi-btn" id="pyqAdminUnlockBtn" style="flex:1;">Unlock</button>
+    </div>
+  </div>
+</div>
 
 <div class="chat-panel" id="chatPanel" style="display:none;">
   <div class="chat-panel-head">
