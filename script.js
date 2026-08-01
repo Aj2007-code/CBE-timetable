@@ -167,14 +167,15 @@
   // PYQ tab: reads go straight to Supabase with the anon key (public, read-only —
   // there is no insert/update/delete policy for anon on this table, so this key
   // alone can never write). Uploads/deletes go through /api/pyq-admin, which is
-  // the only thing holding the service-role key, gated by an admin password.
+  // the only thing holding the service-role key. Admin status is just "are you
+  // logged in as this roll number" — no separate password.
   const PYQ_BUCKET = "pyq";
-  const PYQ_ADMIN_SESSION_KEY = "cbe-pyq-admin-key";
+  const PYQ_ADMIN_ROLL = "2501CB23";
   function pyqPublicUrl(storagePath){
     return `${SUPABASE_URL}/storage/v1/object/public/${PYQ_BUCKET}/${storagePath}`;
   }
-  function pyqAdminKeyStored(){
-    try{ return sessionStorage.getItem(PYQ_ADMIN_SESSION_KEY) || null; }catch(e){ return null; }
+  function pyqIsAdmin(){
+    return !!(currentUser && currentUser.roll === PYQ_ADMIN_ROLL);
   }
   const Store = (function(){
     const hasRemote = !!(window.storage && typeof window.storage.get === 'function');
@@ -1377,7 +1378,6 @@
   // ---------- PYQ tab ----------
   let pyqFiles = {};          // courseCode -> array of {id, file_name, storage_path, size_bytes, uploaded_at}
   let pyqOpenCourse = null;   // currently expanded course code
-  let pyqAdminUnlocked = !!pyqAdminKeyStored();
   let pyqLoaded = false;
 
   function pyqFmtSize(bytes){
@@ -1411,11 +1411,9 @@
     if(!wrap) return;
     if(!pyqLoaded) await fetchPyqFiles();
 
-    const adminBtn = document.getElementById('pyqAdminBtn');
-    if(adminBtn){
-      adminBtn.textContent = pyqAdminUnlocked ? '🔓 Admin' : '🔒 Admin';
-      adminBtn.classList.toggle('on', pyqAdminUnlocked);
-    }
+    const isAdmin = pyqIsAdmin();
+    const badge = document.getElementById('pyqAdminBadge');
+    if(badge) badge.style.display = isAdmin ? 'inline-block' : 'none';
 
     const codes = activeCourseCodes();
     wrap.innerHTML = codes.map(code=>{
@@ -1432,12 +1430,12 @@
             <div class="pyq-file-actions">
               <a href="${pyqPublicUrl(f.storage_path)}" target="_blank" rel="noopener">View</a>
               <a href="${pyqPublicUrl(f.storage_path)}" download="${f.file_name}">Download</a>
-              ${pyqAdminUnlocked ? `<button class="pyq-file-del" data-del-id="${f.id}" data-del-path="${f.storage_path}" title="Delete">🗑</button>` : ''}
+              ${isAdmin ? `<button class="pyq-file-del" data-del-id="${f.id}" data-del-path="${f.storage_path}" title="Delete">🗑</button>` : ''}
             </div>
           </div>`).join("")
         : `<div class="pyq-empty">No PYQ uploaded yet for this course.</div>`;
 
-      const addRow = pyqAdminUnlocked ? `
+      const addRow = isAdmin ? `
         <div class="pyq-add-row">
           <button class="pyq-add-btn" data-add-code="${code}">+ Upload PDF for ${code}</button>
           <input type="file" accept="application/pdf" class="pyq-file-input" data-input-code="${code}" style="display:none;" />
@@ -1506,6 +1504,7 @@
   const PYQ_MAX_BYTES = 3 * 1024 * 1024; // 3MB — keep well under the serverless body-size limit
 
   async function pyqUploadFile(courseCode, file){
+    if(!pyqIsAdmin()) return;
     if(file.type !== 'application/pdf' && !/\.pdf$/i.test(file.name)){
       flashSaveToast(false, 'Only PDF files are supported');
       return;
@@ -1514,8 +1513,6 @@
       flashSaveToast(false, 'File too big — keep PDFs under 3MB');
       return;
     }
-    const adminKey = pyqAdminKeyStored();
-    if(!adminKey){ pyqOpenAdminModal(); return; }
 
     const loadingEl = document.querySelector(`[data-uploading-code="${courseCode}"]`);
     if(loadingEl) loadingEl.style.display = 'block';
@@ -1524,7 +1521,7 @@
       const res = await fetch('/api/pyq-admin', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ adminKey, action:'upload', courseCode, fileName: file.name, fileBase64 })
+        body: JSON.stringify({ roll: currentUser.roll, action:'upload', courseCode, fileName: file.name, fileBase64 })
       });
       const data = await res.json().catch(()=>({}));
       if(!res.ok || !data.ok){
@@ -1543,14 +1540,13 @@
   }
 
   async function pyqDeleteFile(id, storagePath){
-    const adminKey = pyqAdminKeyStored();
-    if(!adminKey){ pyqOpenAdminModal(); return; }
+    if(!pyqIsAdmin()) return;
     if(!confirm('Delete this PYQ file for everyone?')) return;
     try{
       const res = await fetch('/api/pyq-admin', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ adminKey, action:'delete', id, storagePath })
+        body: JSON.stringify({ roll: currentUser.roll, action:'delete', id, storagePath })
       });
       const data = await res.json().catch(()=>({}));
       if(!res.ok || !data.ok){
@@ -1565,69 +1561,6 @@
       flashSaveToast(false, 'Delete failed');
     }
   }
-
-  function pyqOpenAdminModal(){
-    const ov = document.getElementById('pyqAdminModalOverlay');
-    const err = document.getElementById('pyqAdminError');
-    const input = document.getElementById('pyqAdminKeyInput');
-    if(err) err.style.display = 'none';
-    if(input) input.value = '';
-    if(ov) ov.style.display = 'flex';
-    if(input) setTimeout(()=> input.focus(), 50);
-  }
-  function pyqCloseAdminModal(){
-    const ov = document.getElementById('pyqAdminModalOverlay');
-    if(ov) ov.style.display = 'none';
-  }
-  async function pyqTryUnlock(){
-    const input = document.getElementById('pyqAdminKeyInput');
-    const err = document.getElementById('pyqAdminError');
-    const btn = document.getElementById('pyqAdminUnlockBtn');
-    const key = input ? input.value.trim() : '';
-    if(!key) return;
-    if(btn){ btn.disabled = true; btn.textContent = 'Checking…'; }
-    try{
-      const res = await fetch('/api/pyq-admin', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ adminKey: key, action:'verify' })
-      });
-      const data = await res.json().catch(()=>({}));
-      if(res.ok && data.ok){
-        try{ sessionStorage.setItem(PYQ_ADMIN_SESSION_KEY, key); }catch(e){}
-        pyqAdminUnlocked = true;
-        pyqCloseAdminModal();
-        renderPyqView();
-      }else{
-        if(err){
-          err.textContent = data.error ? (data.error + ' (status ' + res.status + ')') : ('Wrong key — try again. (status ' + res.status + ')');
-          err.style.display = 'block';
-        }
-      }
-    }catch(e){
-      if(err){ err.textContent = 'Could not reach /api/pyq-admin — is it deployed?'; err.style.display = 'block'; }
-    }finally{
-      if(btn){ btn.disabled = false; btn.textContent = 'Unlock'; }
-    }
-  }
-  function pyqLockAdmin(){
-    try{ sessionStorage.removeItem(PYQ_ADMIN_SESSION_KEY); }catch(e){}
-    pyqAdminUnlocked = false;
-    renderPyqView();
-  }
-
-  document.getElementById('pyqAdminBtn')?.addEventListener('click', ()=>{
-    if(pyqAdminUnlocked){
-      if(confirm('Lock admin access on this device?')) pyqLockAdmin();
-    }else{
-      pyqOpenAdminModal();
-    }
-  });
-  document.getElementById('pyqAdminCancelBtn')?.addEventListener('click', pyqCloseAdminModal);
-  document.getElementById('pyqAdminUnlockBtn')?.addEventListener('click', pyqTryUnlock);
-  document.getElementById('pyqAdminKeyInput')?.addEventListener('keydown', (e)=>{
-    if(e.key === 'Enter') pyqTryUnlock();
-  });
 
   let spiCourses = []; 
 

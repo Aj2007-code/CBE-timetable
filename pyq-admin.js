@@ -1,14 +1,17 @@
 // api/pyq-admin.js
 //
-// Handles admin-only actions for the PYQ tab: verifying the admin key,
-// uploading a PDF, and deleting a PDF. Everyone else (students viewing/
-// downloading PYQs) never touches this file — those reads go straight from
-// the browser to Supabase using the public anon key, which has no write
-// access to the pyq table or bucket.
+// Handles admin-only actions for the PYQ tab: uploading a PDF and deleting a
+// PDF. Everyone else (students viewing/downloading PYQs) never touches this
+// file — those reads go straight from the browser to Supabase using the
+// public anon key, which has no write access to the pyq table or bucket.
 //
-// Required Vercel environment variables (Project Settings -> Environment
+// "Admin" here just means "logged in with roll number 2501CB23" — there is
+// no separate password. Note this is easy to spoof from devtools since the
+// app's own login has no password either; fine for a low-stakes class tool,
+// but don't rely on this for anything sensitive.
+//
+// Required Vercel environment variable (Project Settings -> Environment
 // Variables on vercel.com):
-//   PYQ_ADMIN_KEY              a password only you know/type in the app
 //   SUPABASE_SERVICE_ROLE_KEY  from Supabase: Project Settings -> API ->
 //                               service_role key. NEVER put this in
 //                               script.js or anywhere else client-side —
@@ -20,6 +23,7 @@
 const SUPABASE_URL = "https://ektzrezmwzhautdmbrwf.supabase.co";
 const BUCKET = "pyq";
 const MAX_BYTES = 3 * 1024 * 1024; // keep uploads well under the serverless body-size limit
+const ADMIN_ROLL = "2501CB23";
 
 function serviceHeaders(extra) {
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -44,8 +48,8 @@ module.exports = async (req, res) => {
     return;
   }
 
-  if (!process.env.SUPABASE_SERVICE_ROLE_KEY || !process.env.PYQ_ADMIN_KEY) {
-    res.status(500).json({ error: "Server not configured — missing PYQ_ADMIN_KEY or SUPABASE_SERVICE_ROLE_KEY" });
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    res.status(500).json({ error: "Server not configured — missing SUPABASE_SERVICE_ROLE_KEY" });
     return;
   }
 
@@ -59,17 +63,12 @@ module.exports = async (req, res) => {
   }
   body = body || {};
 
-  if (body.adminKey !== process.env.PYQ_ADMIN_KEY) {
-    res.status(401).json({ error: "Wrong admin key" });
+  if (String(body.roll || "").toUpperCase() !== ADMIN_ROLL) {
+    res.status(401).json({ error: "Not authorized for this roll number" });
     return;
   }
 
   try {
-    if (body.action === "verify") {
-      res.status(200).json({ ok: true });
-      return;
-    }
-
     if (body.action === "upload") {
       const { courseCode, fileName, fileBase64 } = body;
       if (!courseCode || !fileName || !fileBase64) {
