@@ -10,6 +10,11 @@
 
   function tm(h,m){ return h*60+m; }
 
+  // First day of this semester's classes. Attendance totals are now counted
+  // for every session from this date up to now (not just ones you manually
+  // tapped a mark on) — see computeStats().
+  const SEMESTER_START = new Date(2026, 6, 28); // 28 Jul 2026 (Tue)
+
   const SCHEDULE = [
     // Monday
     { day:1, start:tm(16,0), end:tm(16,55), code:"CB2102", type:"lecture", room:"R102" },
@@ -1221,38 +1226,35 @@
 
   let attSelectedDate = new Date();
 
+  // Walks every calendar day of the semester up to today and counts every
+  // session that has actually started/ended — whether or not it was ever
+  // manually marked. A session that's over but was never tapped defaults to
+  // "absent" so the total (and your %) updates on its own the moment class
+  // ends, instead of only moving when you remember to open the app and tap.
+  // Cancelled sessions ('c') never count toward the total, same as before.
   function computeStats(){
     const stats = {};
     statGroupsForActiveCourses().forEach(g=> stats[g.key] = {present:0, total:0});
     let totalPresent=0, totalMarked=0;
 
-    // For courses that split lab/theory we need to know which session TYPE
-    // each marked key corresponds to (the key itself only has date|code|start).
-    // Build that lookup once, per date actually present in `attendance`.
-    const datesNeeded = new Set();
-    Object.keys(attendance).forEach(key=>{
-      const [dateIso, code] = key.split("|");
-      if(LAB_SPLIT_COURSES.has(code)) datesNeeded.add(dateIso);
-    });
-    const typeByKey = {};
-    datesNeeded.forEach(iso=>{
-      const [y,m,d] = iso.split('-').map(Number);
-      const date = new Date(y, m-1, d);
-      scheduleForDate(date).forEach(s=>{
-        typeByKey[markKeyFor(iso, s)] = s.type;
-      });
-    });
-
-    Object.keys(attendance).forEach(key=>{
-      const [, code] = key.split("|");
-      const val = attendance[key];
-      if(val==='c') return;
-      const statKey = statKeyForSession(code, typeByKey[key]);
-      if(!stats[statKey]) stats[statKey]={present:0,total:0};
-      stats[statKey].total++;
-      if(val==='p'){ stats[statKey].present++; totalPresent++; }
-      totalMarked++;
-    });
+    const start = startOfDay(SEMESTER_START);
+    const end = startOfDay(now);
+    if(start.getTime() <= end.getTime()){
+      for(let d=new Date(start); d.getTime()<=end.getTime(); d=addDays(d,1)){
+        const iso = isoDate(d);
+        scheduleForDate(d).forEach(s=>{
+          if(!sessionHasStarted(d, s)) return; // hasn't happened yet today
+          const key = markKeyFor(iso, s);
+          const val = attendance[key] || 'a'; // unmarked past session = absent by default
+          if(val==='c') return;
+          const statKey = statKeyForSession(s.code, s.type);
+          if(!stats[statKey]) stats[statKey]={present:0,total:0};
+          stats[statKey].total++;
+          totalMarked++;
+          if(val==='p'){ stats[statKey].present++; totalPresent++; }
+        });
+      }
+    }
     return { stats, totalPresent, totalMarked };
   }
 
@@ -1299,7 +1301,7 @@
       </div>
       <div class="overall-track"><div class="overall-fill" style="width:${overallPct}%; background:${overallColor}"></div></div>
       <div style="font-size:11.5px; color:var(--text-faint); font-family:var(--mono); margin-top:8px;">
-        ${totalMarked ? totalPresent+' present of '+totalMarked+' marked sessions' : 'No sessions marked yet — start below.'}
+        ${totalMarked ? totalPresent+' present of '+totalMarked+' sessions held so far' : 'No sessions held yet — check back once class starts.'}
       </div>
       ${overallProj ? `<div class="overall-proj" style="color:${projColor(overallProj.type)}">${overallProj.text}</div>` : ''}
     `;
@@ -1540,7 +1542,7 @@
         <div class="cc-body">
           <div class="cc-top"><span class="cc-code">${s.code}</span>${nameSpan(s,'cc-name')}<span class="cc-tag ${s.type}">${s.tag || s.type}</span>${isExtra ? '<span class="cc-tag added">added</span>' : ''}</div>
           <div class="cc-meta">${fmtHM(s.start)}–${fmtHM(s.end)} · ${s.room}</div>
-          ${locked ? `<div class="cc-status">not started yet</div>` : ''}
+          ${locked ? `<div class="cc-status">not started yet</div>` : (!status ? `<div class="cc-status auto-absent">counted as absent — tap ✓ if you were there</div>` : '')}
           ${removeBtn}
         </div>
         <div class="mark-group">
