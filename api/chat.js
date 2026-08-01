@@ -1,10 +1,10 @@
 // Vercel serverless function: /api/chat
-// Keeps the Gemini API key on the server — the browser never sees it.
+// Keeps the Groq API key on the server — the browser never sees it.
 //
 // Required env var (set in Vercel project settings → Environment Variables):
-//   GEMINI_API_KEY = the free key you get from aistudio.google.com/apikey
+//   GROQ_API_KEY = the free key you get from console.groq.com
 //
-// Optional: GEMINI_MODEL to override the default model (default: gemini-2.5-flash).
+// Optional: GROQ_MODEL to override the default model (default: llama-3.3-70b-versatile).
 
 module.exports = async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -12,9 +12,9 @@ module.exports = async function handler(req, res) {
     return;
   }
 
-  const apiKey = process.env.GEMINI_API_KEY;
+  const apiKey = process.env.GROQ_API_KEY;
   if (!apiKey) {
-    res.status(500).json({ error: 'Server not configured: missing GEMINI_API_KEY' });
+    res.status(500).json({ error: 'Server not configured: missing GROQ_API_KEY' });
     return;
   }
 
@@ -32,35 +32,35 @@ module.exports = async function handler(req, res) {
     return;
   }
 
+  // Groq uses OpenAI-style chat format: role is "user" or "assistant" directly.
   // Keep the payload small and bounded: last 12 turns, 4000 chars each.
-  // Gemini uses role "model" for the assistant side (not "assistant").
   const trimmed = messages.slice(-12).map(m => ({
-    role: m.role === 'assistant' ? 'model' : 'user',
-    parts: [{ text: String(m.content || '').slice(0, 4000) }]
+    role: m.role === 'assistant' ? 'assistant' : 'user',
+    content: String(m.content || '').slice(0, 4000)
   }));
 
-  const model = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
+  const model = process.env.GROQ_MODEL || 'llama-3.3-70b-versatile';
 
   try {
-    const upstream = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
-      {
-        method: 'POST',
-        headers: {
-          'content-type': 'application/json',
-          'x-goog-api-key': apiKey
-        },
-        body: JSON.stringify({
-          system_instruction: {
-            parts: [{
-              text: 'You are a concise assistant embedded in an IIT Patna CBE student timetable app. Give short, direct, to-the-point answers — a few sentences at most unless the student explicitly asks for more detail or a list/steps. No filler, no long preambles, no unnecessary caveats. Plain text, not markdown headers.'
-            }]
+    const upstream = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'authorization': `Bearer ${apiKey}`
+      },
+      body: JSON.stringify({
+        model,
+        messages: [
+          {
+            role: 'system',
+            content:
+              'You are a concise assistant embedded in an IIT Patna CBE student timetable app. Give short, direct, to-the-point answers — a few sentences at most unless the student explicitly asks for more detail or a list/steps. No filler, no long preambles, no unnecessary caveats. Plain text, not markdown headers.'
           },
-          contents: trimmed,
-          generationConfig: { maxOutputTokens: 400 }
-        })
-      }
-    );
+          ...trimmed
+        ],
+        max_tokens: 400
+      })
+    });
 
     if (!upstream.ok) {
       const errText = await upstream.text();
@@ -71,12 +71,11 @@ module.exports = async function handler(req, res) {
     const data = await upstream.json();
     const reply =
       data &&
-      data.candidates &&
-      data.candidates[0] &&
-      data.candidates[0].content &&
-      data.candidates[0].content.parts &&
-      data.candidates[0].content.parts[0]
-        ? data.candidates[0].content.parts[0].text
+      data.choices &&
+      data.choices[0] &&
+      data.choices[0].message &&
+      data.choices[0].message.content
+        ? data.choices[0].message.content
         : '';
 
     if (!reply) {
