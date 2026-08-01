@@ -282,6 +282,24 @@
   </div>
 </div>
 
+<button class="chat-fab" id="chatFab" aria-label="Open assistant" style="display:none;">
+  <span class="chat-fab-icon">✦</span>
+</button>
+
+<div class="chat-panel" id="chatPanel" style="display:none;">
+  <div class="chat-panel-head">
+    <div class="chat-panel-title"><span class="chat-panel-dot"></span>Ask</div>
+    <button class="chat-panel-close" id="chatCloseBtn" aria-label="Close">✕</button>
+  </div>
+  <div class="chat-messages" id="chatMessages">
+    <div class="chat-msg bot">Hey — ask me anything. I'll keep it short.</div>
+  </div>
+  <div class="chat-input-row">
+    <input type="text" id="chatInput" placeholder="Ask something…" maxlength="500" autocomplete="off" />
+    <button class="chat-send-btn" id="chatSendBtn" aria-label="Send">➤</button>
+  </div>
+</div>
+
 <script src="script.js"></script>
 </body>
 </html>

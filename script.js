@@ -371,6 +371,9 @@
     rollInput.value = '';
     loginError.classList.remove('show');
     rollInput.focus();
+    if(chatFab) chatFab.style.display = 'none';
+    if(chatPanel) chatPanel.style.display = 'none';
+    chatHistory = [];
   });
 
   async function tryAutoLogin(){
@@ -395,6 +398,7 @@
     updateBackupCopy();
     updateBackupMeta();
     updateHssButton();
+    if(chatFab) chatFab.style.display = 'flex';
     openDayEditAnnounceModal();
   }
 
@@ -558,6 +562,81 @@
       addExtraSessionForDate(addClassTargetDate, session);
       closeAddClassModal();
       renderAll();
+    });
+  }
+
+  // ===== AI Assistant chat widget =====
+  const chatFab = document.getElementById('chatFab');
+  const chatPanel = document.getElementById('chatPanel');
+  const chatCloseBtn = document.getElementById('chatCloseBtn');
+  const chatMessages = document.getElementById('chatMessages');
+  const chatInput = document.getElementById('chatInput');
+  const chatSendBtn = document.getElementById('chatSendBtn');
+  let chatHistory = [];
+  let chatBusy = false;
+
+  function openChatPanel(){
+    if(!chatPanel) return;
+    chatPanel.style.display = 'flex';
+    if(chatFab) chatFab.style.display = 'none';
+    if(chatInput) chatInput.focus();
+  }
+  function closeChatPanel(){
+    if(!chatPanel) return;
+    chatPanel.style.display = 'none';
+    if(chatFab) chatFab.style.display = 'flex';
+  }
+  if(chatFab) chatFab.addEventListener('click', openChatPanel);
+  if(chatCloseBtn) chatCloseBtn.addEventListener('click', closeChatPanel);
+
+  function appendChatBubble(role, text){
+    const div = document.createElement('div');
+    div.className = 'chat-msg ' + (role==='user' ? 'user' : 'bot');
+    div.textContent = text;
+    chatMessages.appendChild(div);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+    return div;
+  }
+
+  async function sendChatMessage(){
+    const text = chatInput.value.trim();
+    if(!text || chatBusy) return;
+    chatInput.value = '';
+    appendChatBubble('user', text);
+    chatHistory.push({ role:'user', content:text });
+    chatBusy = true;
+    chatSendBtn.disabled = true;
+
+    const typingEl = appendChatBubble('bot', 'thinking…');
+    typingEl.classList.add('typing');
+
+    try{
+      const res = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ messages: chatHistory })
+      });
+      const data = await res.json().catch(()=>null);
+      typingEl.classList.remove('typing');
+      if(!res.ok || !data || !data.reply){
+        typingEl.textContent = "Couldn't get a reply — try again in a bit.";
+      } else {
+        typingEl.textContent = data.reply;
+        chatHistory.push({ role:'assistant', content:data.reply });
+      }
+    }catch(e){
+      typingEl.classList.remove('typing');
+      typingEl.textContent = "Network error — check your connection.";
+    }
+
+    chatBusy = false;
+    chatSendBtn.disabled = false;
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+  }
+  if(chatSendBtn) chatSendBtn.addEventListener('click', sendChatMessage);
+  if(chatInput){
+    chatInput.addEventListener('keydown', (e)=>{
+      if(e.key === 'Enter'){ e.preventDefault(); sendChatMessage(); }
     });
   }
 
