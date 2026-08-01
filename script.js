@@ -575,11 +575,24 @@
   let chatHistory = [];
   let chatBusy = false;
 
+  const CHAT_WELCOME_KEY = 'cbe-timetable:chatWelcomeShown';
+  function hasSeenChatWelcome(){
+    try{ return localStorage.getItem(CHAT_WELCOME_KEY) === '1'; }
+    catch(e){ return false; }
+  }
+  function markChatWelcomeSeen(){
+    try{ localStorage.setItem(CHAT_WELCOME_KEY, '1'); }catch(e){}
+  }
+
   function openChatPanel(){
     if(!chatPanel) return;
     chatPanel.style.display = 'flex';
     if(chatFab) chatFab.style.display = 'none';
     if(chatInput) chatInput.focus();
+    if(!hasSeenChatWelcome()){
+      appendChatBubble('bot', "New here — I can answer quick questions about your schedule, attendance, or electives. Keep it short and I'll do the same.");
+      markChatWelcomeSeen();
+    }
   }
   function closeChatPanel(){
     if(!chatPanel) return;

@@ -157,6 +157,7 @@
   .feature-tag.cr{color:var(--amber); border-color:var(--amber); background:var(--amber-dim);}
   .feature-tag.at{color:var(--green); border-color:var(--green); background:var(--green-dim); font-size:13px;}
   .feature-tag.ed{color:var(--violet); border-color:var(--violet); background:#3a2a5c; font-size:12.5px;}
+  .feature-tag.ai{color:var(--teal); border-color:var(--teal); background:var(--teal-dim); font-size:13px;}
 
   .topbar{
     display:flex; align-items:center; justify-content:space-between; gap:12px;
