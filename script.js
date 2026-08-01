@@ -1599,10 +1599,13 @@
         pyqCloseAdminModal();
         renderPyqView();
       }else{
-        if(err) err.style.display = 'block';
+        if(err){
+          err.textContent = data.error ? (data.error + ' (status ' + res.status + ')') : ('Wrong key — try again. (status ' + res.status + ')');
+          err.style.display = 'block';
+        }
       }
     }catch(e){
-      if(err){ err.textContent = 'Could not reach the server — try again.'; err.style.display = 'block'; }
+      if(err){ err.textContent = 'Could not reach /api/pyq-admin — is it deployed?'; err.style.display = 'block'; }
     }finally{
       if(btn){ btn.disabled = false; btn.textContent = 'Unlock'; }
     }
