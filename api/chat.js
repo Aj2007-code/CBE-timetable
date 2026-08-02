@@ -1,21 +1,5 @@
-// Vercel serverless function: /api/chat
-// Keeps the Groq API key on the server — the browser never sees it.
-//
-// Required env var (set in Vercel project settings → Environment Variables):
-//   GROQ_API_KEY = the free key you get from console.groq.com
-//
-// Optional: GROQ_MODEL to override the default model (default: llama-3.3-70b-versatile).
-//
-// Frontend contract (unchanged): POST { messages: [{role, content}], context?: {...} }
-// -> { reply: "..." }
-//
-// NEW: an optional `context` object can be sent from the frontend with live app
-// data (current class, attendance %, HSS elective, day/time, etc). If present,
-// it's woven into the system prompt so answers are grounded in real data instead
-// of the model guessing or making things up.
-
 const PRIMARY_MODEL = process.env.GROQ_MODEL || 'llama-3.3-70b-versatile';
-const FALLBACK_MODEL = 'llama-3.1-8b-instant'; // used only if the primary model call fails
+const FALLBACK_MODEL = 'llama-3.1-8b-instant'; 
 
 function buildSystemPrompt(context) {
   let prompt = `You are the in-app assistant for a CBE (Chemical & Biochemical Engineering) 2nd-year student timetable app at IIT Patna.
@@ -55,7 +39,7 @@ async function callGroq(apiKey, model, systemPrompt, trimmedMessages) {
       model,
       messages: [{ role: 'system', content: systemPrompt }, ...trimmedMessages],
       max_tokens: 400,
-      temperature: 0.4,   // lower = more focused/factual, less rambly
+      temperature: 0.4,   
       top_p: 0.9
     })
   });
@@ -97,8 +81,6 @@ module.exports = async function handler(req, res) {
   try {
     let upstream = await callGroq(apiKey, PRIMARY_MODEL, systemPrompt, trimmed);
 
-    // If the primary model is rate-limited or unavailable, try the fallback once
-    // instead of surfacing an error straight to the student.
     if (!upstream.ok && (upstream.status === 429 || upstream.status >= 500)) {
       upstream = await callGroq(apiKey, FALLBACK_MODEL, systemPrompt, trimmed);
     }

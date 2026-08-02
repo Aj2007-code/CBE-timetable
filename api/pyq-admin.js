@@ -1,28 +1,6 @@
-// api/pyq-admin.js
-//
-// Handles admin-only actions for the PYQ tab: uploading a PDF and deleting a
-// PDF. Everyone else (students viewing/downloading PYQs) never touches this
-// file — those reads go straight from the browser to Supabase using the
-// public anon key, which has no write access to the pyq table or bucket.
-//
-// "Admin" here just means "logged in with roll number 2501CB23" — there is
-// no separate password. Note this is easy to spoof from devtools since the
-// app's own login has no password either; fine for a low-stakes class tool,
-// but don't rely on this for anything sensitive.
-//
-// Required Vercel environment variable (Project Settings -> Environment
-// Variables on vercel.com):
-//   SUPABASE_SERVICE_ROLE_KEY  from Supabase: Project Settings -> API ->
-//                               service_role key. NEVER put this in
-//                               script.js or anywhere else client-side —
-//                               it bypasses all Row Level Security.
-//
-// See the SQL at the bottom of this project's setup notes for the table +
-// storage bucket this function expects (cbe_pyq_files table, "pyq" bucket).
-
 const SUPABASE_URL = "https://ektzrezmwzhautdmbrwf.supabase.co";
 const BUCKET = "pyq";
-const MAX_BYTES = 3 * 1024 * 1024; // keep uploads well under the serverless body-size limit
+const MAX_BYTES = 3 * 1024 * 1024; 
 const ADMIN_ROLL = "2501CB23";
 
 function serviceHeaders(extra) {
@@ -110,7 +88,6 @@ module.exports = async (req, res) => {
       });
       if (!insertRes.ok) {
         const t = await insertRes.text();
-        // Roll back the storage object so we don't leave an orphaned file.
         await fetch(`${SUPABASE_URL}/storage/v1/object/${BUCKET}/${storagePath}`, {
           method: "DELETE",
           headers: serviceHeaders(),

@@ -10,9 +10,6 @@
 
   function tm(h,m){ return h*60+m; }
 
-  // First day of this semester's classes. Attendance totals are now counted
-  // for every session from this date up to now (not just ones you manually
-  // tapped a mark on) — see computeStats().
   const SEMESTER_START = new Date(2026, 6, 28); // 28 Jul 2026 (Tue)
 
   const SCHEDULE = [
@@ -73,9 +70,7 @@
     return "lecture";
   }
 
-  // Courses that have both a lecture and a lab component and should get
-  // separate attendance tracking/stat-cards for each (theory vs lab).
-  const LAB_SPLIT_COURSES = new Set(["CB2102", "CB2103"]); // Fluid Mechanics, Heat Transfer
+  const LAB_SPLIT_COURSES = new Set(["CB2102", "CB2103"]); 
 
   const HSS_START = tm(14,0), HSS_END = tm(15,0);
   const HSS_ELECTIVES = [
@@ -123,9 +118,7 @@
     return codes;
   }
 
-  // Attendance is tracked per "stat group": most courses are a single group,
-  // but courses in LAB_SPLIT_COURSES get split into a theory group and a lab
-  // group, each with its own stat-card and percentage.
+ 
   function statGroupsForActiveCourses(){
     const groups = [];
     activeCourseCodes().forEach(code=>{
@@ -139,7 +132,6 @@
     return groups;
   }
 
-  // Which stat group a given marked session belongs to.
   function statKeyForSession(code, sessionType){
     if(LAB_SPLIT_COURSES.has(code)) return sessionType==='lab' ? code+':lab' : code+':theory';
     return code;
@@ -164,11 +156,6 @@
   const SUPABASE_URL = "https://ektzrezmwzhautdmbrwf.supabase.co";       
   const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVrdHpyZXptd3poYXV0ZG1icndmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ4OTY1MzksImV4cCI6MjEwMDQ3MjUzOX0.IoVDIWNNqMzFFZUk_C2LV8Wm-cxBs3OM6Cp5bP2GTr4";  
 
-  // PYQ tab: reads go straight to Supabase with the anon key (public, read-only —
-  // there is no insert/update/delete policy for anon on this table, so this key
-  // alone can never write). Uploads/deletes go through /api/pyq-admin, which is
-  // the only thing holding the service-role key. Admin status is just "are you
-  // logged in as this roll number" — no separate password.
   const PYQ_BUCKET = "pyq";
   const PYQ_ADMIN_ROLL = "2501CB23";
   function pyqPublicUrl(storagePath){
@@ -323,7 +310,7 @@
 
   let attendance = {};
   let courseNames = {};
-  let dayOverrides = {}; // { "YYYY-MM-DD": { removed:["code|start|room",...], extra:[{id,code,start,end,room,type,tag,name}] } }
+  let dayOverrides = {}; 
   let currentUser = null; 
 
   const loginScreen = document.getElementById('loginScreen');
@@ -606,7 +593,7 @@
     });
   }
 
-  // ===== AI Assistant chat widget =====
+
   const chatFab = document.getElementById('chatFab');
   const chatPanel = document.getElementById('chatPanel');
   const chatCloseBtn = document.getElementById('chatCloseBtn');
@@ -699,7 +686,7 @@
     if(!banner) return;
     if(Store.isCloud){ banner.style.display = 'none'; return; }
     banner.style.display = 'flex';
-    banner.innerHTML = `⚠️ Saved to this browser only — clearing browser data or switching device/browser will lose it. <b>Back up from the Attendance tab.</b>`;
+    banner.innerHTML = ` Saved to this browser only — clearing browser data or switching device/browser will lose it. <b>Back up from the Attendance tab.</b>`;
   }
 
   let lastSyncOk = null;   
@@ -719,12 +706,12 @@
     const badge = document.getElementById('syncBadge');
     if(!badge) return;
     if(!Store.isCloud){
-      badge.textContent = '💾 Local only';
+      badge.textContent = ' Local only';
       badge.className = 'sync-badge local';
       return;
     }
     if(lastSyncOk === null){
-      badge.textContent = '☁ Cloud enabled';
+      badge.textContent = ' Cloud enabled';
       badge.className = 'sync-badge cloud';
       return;
     }
@@ -732,7 +719,7 @@
       badge.textContent = '✓ Synced ' + timeAgoShort(lastSyncAt);
       badge.className = 'sync-badge cloud';
     } else {
-      badge.textContent = '⚠ Not synced — saved locally';
+      badge.textContent = ' Not synced — saved locally';
       badge.className = 'sync-badge local';
     }
   }
@@ -968,8 +955,6 @@
 
   function scheduleForDay(dow){ return PERSONAL_SCHEDULE.filter(s=>s.day===dow); }
 
-  // Identifies a recurring-schedule session instance well enough to remember
-  // "skip this one on this date" without needing a global session id.
   function sessionSig(s){ return s.code+"|"+s.start+"|"+s.room; }
 
   function ensureDayOverride(iso){
@@ -983,9 +968,6 @@
     if(ov && (!ov.removed || !ov.removed.length) && (!ov.extra || !ov.extra.length)) delete dayOverrides[iso];
   }
 
-  // The actual per-date schedule a student sees: the shared recurring pattern
-  // for that weekday, with their own personal removals/additions for that
-  // exact date layered on top. Never mutates SCHEDULE/PERSONAL_SCHEDULE.
   function scheduleForDate(date){
     const dow = date.getDay();
     const iso = isoDate(date);
@@ -1002,8 +984,6 @@
     return list.slice().sort((a,b)=> a.start-b.start);
   }
 
-  // Base (shared-schedule) sessions the student has personally hidden for a
-  // given date, so the "Removed for this day" list can offer a restore.
   function removedBaseSessionsForDate(date){
     const dow = date.getDay();
     const iso = isoDate(date);
@@ -1137,25 +1117,19 @@
 
   function markKeyFor(dateIso, s){ return dateIso+"|"+s.code+"|"+s.start; }
 
-  // A session can be marked at all once it has actually started — never before,
-  // regardless of which tab you're on. Future days are never markable.
   function sessionHasStarted(d, s){
     const dayStart = startOfDay(d).getTime();
     const todayStart = startOfDay(now).getTime();
-    if(dayStart > todayStart) return false;               // future day — not started
-    if(dayStart < todayStart) return true;                // past day — fully over, started long ago
-    return (now.getHours()*60 + now.getMinutes()) >= s.start; // today — check the clock
+    if(dayStart > todayStart) return false;               
+    if(dayStart < todayStart) return true;                
+    return (now.getHours()*60 + now.getMinutes()) >= s.start; 
   }
 
-  // The Now tab is a same-day quick-mark surface: once that calendar day has
-  // ended it locks there, and edits have to go through the Attendance tab.
   function canMarkFromNowTab(d, s){
     const isToday = startOfDay(d).getTime() === startOfDay(now).getTime();
     return isToday && sessionHasStarted(d, s);
   }
 
-  // The Attendance tab is the full editing surface: any past or in-progress
-  // session can be marked/corrected there, just never a future one.
   function canMarkFromAttendanceTab(d, s){
     return sessionHasStarted(d, s);
   }
@@ -1262,12 +1236,6 @@
 
   let attSelectedDate = new Date();
 
-  // Walks every calendar day of the semester up to today and counts every
-  // session that has actually started/ended — whether or not it was ever
-  // manually marked. A session that's over but was never tapped defaults to
-  // "absent" so the total (and your %) updates on its own the moment class
-  // ends, instead of only moving when you remember to open the app and tap.
-  // Cancelled sessions ('c') never count toward the total, same as before.
   function computeStats(){
     const stats = {};
     statGroupsForActiveCourses().forEach(g=> stats[g.key] = {present:0, total:0});
@@ -1279,9 +1247,9 @@
       for(let d=new Date(start); d.getTime()<=end.getTime(); d=addDays(d,1)){
         const iso = isoDate(d);
         scheduleForDate(d).forEach(s=>{
-          if(!sessionHasStarted(d, s)) return; // hasn't happened yet today
+          if(!sessionHasStarted(d, s)) return; 
           const key = markKeyFor(iso, s);
-          const val = attendance[key] || 'a'; // unmarked past session = absent by default
+          const val = attendance[key] || 'a'; 
           if(val==='c') return;
           const statKey = statKeyForSession(s.code, s.type);
           if(!stats[statKey]) stats[statKey]={present:0,total:0};
@@ -1397,9 +1365,8 @@
     if(totalEl) totalEl.textContent = totalCredits ? (Math.round(totalCredits*100)/100) : '—';
   }
 
-  // ---------- PYQ tab ----------
-  let pyqFiles = {};          // courseCode -> array of {id, file_name, storage_path, size_bytes, uploaded_at}
-  let pyqOpenCourse = null;   // currently expanded course code
+  let pyqFiles = {};          
+  let pyqOpenCourse = null;   
   let pyqLoaded = false;
 
   function pyqFmtSize(bytes){
@@ -1444,7 +1411,7 @@
       const fileRows = files.length
         ? files.map(f=>`
           <div class="pyq-file-row">
-            <span class="pyq-file-icon">📄</span>
+            <span class="pyq-file-icon"></span>
             <div class="pyq-file-info">
               <div class="pyq-file-name">${f.file_name}</div>
               <div class="pyq-file-meta">${pyqFmtSize(f.size_bytes)}</div>
@@ -1523,7 +1490,7 @@
     });
   }
 
-  const PYQ_MAX_BYTES = 3 * 1024 * 1024; // 3MB — keep well under the serverless body-size limit
+  const PYQ_MAX_BYTES = 3 * 1024 * 1024; 
 
   async function pyqUploadFile(courseCode, file){
     if(!pyqIsAdmin()) return;
@@ -1687,7 +1654,7 @@
       });
       msg.textContent = '✓ Result saved'; msg.className = 'spi-save-msg ok';
     }catch(e){
-      msg.textContent = '⚠ Could not save — check connection'; msg.className = 'spi-save-msg err';
+      msg.textContent = ' Could not save — check connection'; msg.className = 'spi-save-msg err';
     }finally{
       checkSpiReady();
     }
@@ -1755,7 +1722,7 @@
       const status = attendance[key];
       const locked = !canMarkFromAttendanceTab(d, s);
       const isExtra = !!s.isExtra;
-      const canRemoveBase = !isExtra && locked; // locked === hasn't started yet, i.e. a future session
+      const canRemoveBase = !isExtra && locked; 
       const removeBtn = isExtra
         ? `<button class="day-edit-remove" data-extra="1" data-id="${s.id||''}">🗑 delete this class</button>`
         : (canRemoveBase ? `<button class="day-edit-remove" data-extra="0" data-sig="${sessionSig(s)}">🗑 remove for this day only</button>` : '');
