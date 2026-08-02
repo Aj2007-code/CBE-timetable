@@ -117,7 +117,7 @@
   }
 
   .user-bar{
-    display:flex; align-items:center; justify-content:space-between; gap:10px;
+    display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;
     background:var(--surface); border:1px solid var(--border); border-radius:14px;
     padding:12px 16px; margin-bottom:16px;
   }
@@ -135,7 +135,7 @@
     font-size:11px; padding:7px 12px; border-radius:9px; cursor:pointer; flex-shrink:0;
   }
   .logout-btn:hover{color:var(--rose); border-color:var(--rose);}
-  .user-bar-actions{display:flex; align-items:center; gap:8px; flex-shrink:0;}
+  .user-bar-actions{display:flex; align-items:center; gap:8px; flex-shrink:0; flex-wrap:wrap; justify-content:flex-end;}
   .hss-btn{
     background:var(--surface-2); border:1px solid var(--border); color:var(--violet); font-family:var(--mono);
     font-size:11px; padding:7px 12px; border-radius:9px; cursor:pointer; flex-shrink:0;
@@ -147,6 +147,11 @@
     font-size:11px; padding:7px 12px; border-radius:9px; cursor:pointer; flex-shrink:0;
   }
   .about-btn:hover{border-color:var(--teal);}
+  .notes-btn{
+    background:var(--surface-2); border:1px solid var(--border); color:var(--amber); font-family:var(--mono);
+    font-size:11px; padding:7px 12px; border-radius:9px; cursor:pointer; flex-shrink:0; text-decoration:none; display:inline-block;
+  }
+  .notes-btn:hover{border-color:var(--amber);}
 
   .feature-list{display:flex; flex-direction:column; gap:14px; margin-bottom:18px;}
   .feature-item{display:flex; align-items:flex-start; gap:10px;}
@@ -161,6 +166,7 @@
   .feature-tag.ed{color:var(--violet); border-color:var(--violet); background:#3a2a5c; font-size:12.5px;}
   .feature-tag.ai{color:var(--teal); border-color:var(--teal); background:var(--teal-dim); font-size:13px;}
   .feature-tag.pyq{color:var(--pink); border-color:var(--pink); background:var(--pink-dim); font-size:12.5px;}
+  .feature-tag.notes{color:var(--amber); border-color:var(--amber); background:var(--amber-dim); font-size:13px;}
 
   .topbar{
     display:flex; align-items:center; justify-content:space-between; gap:12px;
