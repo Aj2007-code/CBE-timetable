@@ -432,17 +432,39 @@
 
   const dayEditAnnounceOverlay = document.getElementById('dayEditAnnounceOverlay');
   function openDayEditAnnounceModal(){
-    if(isDayEditAnnounceDismissed() || !dayEditAnnounceOverlay){ if(hssCode === null) openHssModal(); return; }
+    if(isDayEditAnnounceDismissed() || !dayEditAnnounceOverlay){ openPyqAnnounceModal(); return; }
     dayEditAnnounceOverlay.style.display = 'flex';
   }
   function closeDayEditAnnounceModal(){
     setDayEditAnnounceDismissed();
     if(dayEditAnnounceOverlay) dayEditAnnounceOverlay.style.display = 'none';
-    if(hssCode === null) openHssModal();
+    openPyqAnnounceModal();
   }
   const dayEditAnnounceGotItBtn = document.getElementById('dayEditAnnounceGotItBtn');
   if(dayEditAnnounceGotItBtn) dayEditAnnounceGotItBtn.addEventListener('click', closeDayEditAnnounceModal);
   if(dayEditAnnounceOverlay) dayEditAnnounceOverlay.addEventListener('click', (e)=>{ if(e.target === dayEditAnnounceOverlay) closeDayEditAnnounceModal(); });
+
+  const PYQ_ANNOUNCE_DISMISS_KEY = 'cbe-timetable:hidePyqAnnounce';
+  function isPyqAnnounceDismissed(){
+    try{ return localStorage.getItem(PYQ_ANNOUNCE_DISMISS_KEY) === '1'; }
+    catch(e){ return false; }
+  }
+  function setPyqAnnounceDismissed(){
+    try{ localStorage.setItem(PYQ_ANNOUNCE_DISMISS_KEY, '1'); }catch(e){}
+  }
+  const pyqAnnounceOverlay = document.getElementById('pyqAnnounceOverlay');
+  function openPyqAnnounceModal(){
+    if(isPyqAnnounceDismissed() || !pyqAnnounceOverlay){ if(hssCode === null) openHssModal(); return; }
+    pyqAnnounceOverlay.style.display = 'flex';
+  }
+  function closePyqAnnounceModal(){
+    setPyqAnnounceDismissed();
+    if(pyqAnnounceOverlay) pyqAnnounceOverlay.style.display = 'none';
+    if(hssCode === null) openHssModal();
+  }
+  const pyqAnnounceGotItBtn = document.getElementById('pyqAnnounceGotItBtn');
+  if(pyqAnnounceGotItBtn) pyqAnnounceGotItBtn.addEventListener('click', closePyqAnnounceModal);
+  if(pyqAnnounceOverlay) pyqAnnounceOverlay.addEventListener('click', (e)=>{ if(e.target === pyqAnnounceOverlay) closePyqAnnounceModal(); });
 
   const aboutOverlay = document.getElementById('aboutModalOverlay');
   const aboutBtn = document.getElementById('aboutBtn');

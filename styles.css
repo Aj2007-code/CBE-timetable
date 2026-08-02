@@ -20,6 +20,8 @@
     --violet:#a78bfa;
     --blue:#38bdf8;
     --blue-dim:#0d3a54;
+    --pink:#f472b6;
+    --pink-dim:#5c1f45;
     --radius:14px;
     --mono:'JetBrains Mono', ui-monospace, monospace;
     --sans:'Inter', system-ui, -apple-system, sans-serif;
@@ -158,6 +160,7 @@
   .feature-tag.at{color:var(--green); border-color:var(--green); background:var(--green-dim); font-size:13px;}
   .feature-tag.ed{color:var(--violet); border-color:var(--violet); background:#3a2a5c; font-size:12.5px;}
   .feature-tag.ai{color:var(--teal); border-color:var(--teal); background:var(--teal-dim); font-size:13px;}
+  .feature-tag.pyq{color:var(--pink); border-color:var(--pink); background:var(--pink-dim); font-size:12.5px;}
 
   .topbar{
     display:flex; align-items:center; justify-content:space-between; gap:12px;
