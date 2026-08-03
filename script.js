@@ -1724,8 +1724,8 @@
       const isExtra = !!s.isExtra;
       const canRemoveBase = !isExtra && locked; 
       const removeBtn = isExtra
-        ? `<button class="day-edit-remove" data-extra="1" data-id="${s.id||''}">🗑 delete this class</button>`
-        : (canRemoveBase ? `<button class="day-edit-remove" data-extra="0" data-sig="${sessionSig(s)}">🗑 remove for this day only</button>` : '');
+        ? `<button class="day-edit-remove" data-extra="1" data-id="${s.id||''}"> delete this class</button>`
+        : (canRemoveBase ? `<button class="day-edit-remove" data-extra="0" data-sig="${sessionSig(s)}"> remove for this day only</button>` : '');
       return `
       <div class="class-card">
         <div class="tile ${s.type}"><div class="num">${fmtHM(s.start).split(' ')[0]}</div><div class="code">${tileCode(s.code)}</div></div>
