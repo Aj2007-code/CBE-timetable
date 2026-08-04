@@ -8,8 +8,11 @@
   const DAY_NAMES = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
   const DAY_SHORT = ["Su","Mo","Tu","We","Th","Fr","Sa"];
 
-
+  // ===== Session activity logging → Google Sheet =====
+  // Paste your Apps Script Web App URL here (see SHEET_SETUP.md).
   const SESSION_LOG_URL = "https://script.google.com/macros/s/AKfycbyU7zwzJ-IMB0JHVxlinK9Modtbp8NG7W_YC6b4F6Via_8RJUgVdz_JE4QDPxF4wIjd/exec";
+  // Roll numbers that should never be logged (e.g. your own, while testing).
+  const SESSION_LOG_EXCLUDE = ["2501CB23"];
 
   const SessionTracker = (function(){
     let sessionId = null;
@@ -58,6 +61,7 @@
 
     function start(user){
       if(!configured() || sessionId) return;
+      if(SESSION_LOG_EXCLUDE.includes(user.roll)) return;
       sessionId = user.roll + "_" + Date.now();
       activeSeconds = 0;
       markActive();
