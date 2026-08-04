@@ -8,6 +8,86 @@
   const DAY_NAMES = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
   const DAY_SHORT = ["Su","Mo","Tu","We","Th","Fr","Sa"];
 
+
+  const SESSION_LOG_URL = "https://script.google.com/macros/s/AKfycbyU7zwzJ-IMB0JHVxlinK9Modtbp8NG7W_YC6b4F6Via_8RJUgVdz_JE4QDPxF4wIjd/exec";
+
+  const SessionTracker = (function(){
+    let sessionId = null;
+    let activeSeconds = 0;
+    let idleTimer = null;
+    let tickTimer = null;
+    let heartbeatTimer = null;
+    let isIdle = false;
+    const IDLE_LIMIT_MS = 60 * 1000;   // no interaction for 60s = idle, stop counting
+    const TICK_MS = 5 * 1000;          // add to active time every 5s while active+visible
+    const HEARTBEAT_MS = 30 * 1000;    // push active_seconds to the sheet every 30s
+
+    function configured(){
+      return !!SESSION_LOG_URL && !SESSION_LOG_URL.includes("PASTE_");
+    }
+
+    function send(payload){
+      if(!configured()) return;
+      try{
+        const body = JSON.stringify(payload);
+        if(navigator.sendBeacon){
+          navigator.sendBeacon(SESSION_LOG_URL, new Blob([body], { type: "text/plain;charset=utf-8" }));
+        } else {
+          fetch(SESSION_LOG_URL, {
+            method: "POST",
+            mode: "no-cors",
+            headers: { "Content-Type": "text/plain;charset=utf-8" },
+            body,
+            keepalive: true
+          }).catch(()=>{});
+        }
+      }catch(e){ /* logging must never break the app */ }
+    }
+
+    function markActive(){
+      isIdle = false;
+      clearTimeout(idleTimer);
+      idleTimer = setTimeout(()=>{ isIdle = true; }, IDLE_LIMIT_MS);
+    }
+
+    function tick(){
+      if(document.visibilityState === "visible" && !isIdle){
+        activeSeconds += TICK_MS / 1000;
+      }
+    }
+
+    function start(user){
+      if(!configured() || sessionId) return;
+      sessionId = user.roll + "_" + Date.now();
+      activeSeconds = 0;
+      markActive();
+
+      send({ type: "start", session_id: sessionId, roll: user.roll, name: user.name, login_time: new Date().toISOString() });
+
+      ["mousemove","keydown","touchstart","scroll","click"].forEach(evt=>{
+        document.addEventListener(evt, markActive, { passive: true });
+      });
+
+      tickTimer = setInterval(tick, TICK_MS);
+      heartbeatTimer = setInterval(()=>{
+        send({ type: "heartbeat", session_id: sessionId, active_seconds: Math.round(activeSeconds), last_seen: new Date().toISOString() });
+      }, HEARTBEAT_MS);
+    }
+
+    function end(){
+      if(!sessionId) return;
+      send({ type: "end", session_id: sessionId, logout_time: new Date().toISOString(), active_seconds: Math.round(activeSeconds) });
+      clearInterval(tickTimer);
+      clearInterval(heartbeatTimer);
+      clearTimeout(idleTimer);
+      sessionId = null;
+    }
+
+    return { start, end };
+  })();
+
+  window.addEventListener("pagehide", ()=> SessionTracker.end());
+
   function tm(h,m){ return h*60+m; }
 
   const SEMESTER_START = new Date(2026, 6, 28); // 28 Jul 2026 (Tue)
@@ -369,6 +449,7 @@
   loginBtn.addEventListener('click', attemptLogin);
 
   document.getElementById('logoutBtn').addEventListener('click', async ()=>{
+    SessionTracker.end();
     currentUser = null;
     attendance = {};
     await Store.delete('remembered-roll', false);
@@ -397,6 +478,7 @@
     appScreen.style.display = 'block';
     document.getElementById('helloName').textContent = currentUser.name;
     document.getElementById('helloRoll').textContent = currentUser.roll;
+    SessionTracker.start(currentUser);
     await loadUserData();
     renderAll();
     updateStorageBanner();
