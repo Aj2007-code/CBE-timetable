@@ -36,6 +36,7 @@
   <div class="user-bar">
     <div class="user-hello">Hello, <b id="helloName">Student</b><span class="roll" id="helloRoll"></span><span class="sync-badge" id="syncBadge"></span></div>
     <div class="user-bar-actions">
+      <button class="bell-btn" id="announceBellBtn" title="Announcements" aria-label="Announcements">🔔<span class="bell-dot" id="announceBellDot" style="display:none;"></span></button>
       <a class="notes-btn" id="notesBtn" href="https://drive.google.com/drive/folders/1Cp7ThRH7u0oel8hIvLfjO9n01E1L3tDr" target="_blank" rel="noopener noreferrer" title="Source: CBE Offc Gr."> Notes</a>
       <button class="about-btn" id="aboutBtn">ⓘ About</button>
       <button class="hss-btn" id="hssBtn">HSS: <span id="hssBtnLabel">not set</span></button>
@@ -44,6 +45,12 @@
   </div>
 
   <div class="storage-banner" id="storageBanner" style="display:none;"></div>
+
+  <div class="announce-banner" id="announceBanner" style="display:none;">
+    <span class="announce-banner-icon">🔔</span>
+    <span class="announce-banner-text" id="announceBannerText"></span>
+    <button class="announce-banner-close" id="announceBannerClose" aria-label="Dismiss">✕</button>
+  </div>
 
   <div class="topbar">
     <div class="brand">
@@ -226,6 +233,25 @@
   </div>
 </div>
 
+<div class="modal-overlay" id="announceModalOverlay" style="display:none;">
+  <div class="modal-card">
+    <div class="modal-title">🔔 Announcements</div>
+    <div class="modal-sub">Important messages from admin — each one disappears automatically 6 hours after it's posted.</div>
+
+    <div class="announce-composer" id="announceComposerWrap" style="display:none;">
+      <textarea id="announceComposerInput" maxlength="300" rows="3" placeholder="Write an announcement for everyone…"></textarea>
+      <div class="announce-composer-row">
+        <span class="announce-composer-hint">Visible to everyone for 6 hours</span>
+        <button class="spi-btn" id="announceComposerBtn" style="width:auto; padding:10px 18px;">Post</button>
+      </div>
+    </div>
+
+    <div class="announce-list" id="announceList"></div>
+
+    <button class="modal-skip" id="announceCloseBtn">Close</button>
+  </div>
+</div>
+
 <div class="modal-overlay" id="aboutModalOverlay" style="display:none;">
   <div class="modal-card">
     <div class="modal-title">Know more about this page</div>
@@ -254,6 +280,10 @@
       <div class="feature-item">
         <span class="feature-tag pyq">PYQ</span>
         <span class="info-text"><b>PYQ</b> — open the <b>PYQ</b> tab, pick a course, and view or download its previous year question papers.</span>
+      </div>
+      <div class="feature-item">
+        <span class="feature-tag an">🔔</span>
+        <span class="info-text"><b>Announcements</b> — tap the bell 🔔 at the top for important messages. Each one auto-disappears 6 hours after posting, and you can 👍 or 👎 any of them.</span>
       </div>
       <div class="feature-item">
         <span class="feature-tag notes"></span>

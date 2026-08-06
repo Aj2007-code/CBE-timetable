@@ -248,6 +248,21 @@
   function pyqIsAdmin(){
     return !!(currentUser && currentUser.roll === PYQ_ADMIN_ROLL);
   }
+
+  // ===== Announcements =====
+  const ANNOUNCE_ADMIN_ROLL = "2501CB23";
+  const ANNOUNCE_TTL_HOURS = 6;
+  function announceIsAdmin(){
+    return !!(currentUser && currentUser.roll === ANNOUNCE_ADMIN_ROLL);
+  }
+  function announceHeaders(){
+    return { apikey: SUPABASE_ANON_KEY, Authorization: 'Bearer ' + SUPABASE_ANON_KEY, 'Content-Type': 'application/json' };
+  }
+  function escapeHtml(str){
+    return String(str == null ? '' : str)
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+      .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+  }
   const Store = (function(){
     const hasRemote = !!(window.storage && typeof window.storage.get === 'function');
     const hasSupabase = !!(SUPABASE_URL && SUPABASE_ANON_KEY);
@@ -465,6 +480,12 @@
     if(chatFab) chatFab.style.display = 'none';
     if(chatPanel) chatPanel.style.display = 'none';
     chatHistory = [];
+    announcements = [];
+    announceReactions = {};
+    announceLoaded = false;
+    if(announceOverlay) announceOverlay.style.display = 'none';
+    if(announceBanner) announceBanner.style.display = 'none';
+    if(document.getElementById('announceBellDot')) document.getElementById('announceBellDot').style.display = 'none';
   });
 
   async function tryAutoLogin(){
@@ -491,6 +512,9 @@
     updateBackupMeta();
     updateHssButton();
     if(chatFab) chatFab.style.display = 'flex';
+    announceBannerDismissed = false;
+    announceLoaded = false;
+    fetchAnnouncements().then(renderAnnounceBell);
     openDayEditAnnounceModal();
   }
 
@@ -965,6 +989,221 @@
       else flashSaveToast(true, 'HSS elective saved');
     }catch(e){ console.warn('hss save failed', e); flashSaveToast(false); }
   }
+
+  let announcements = [];
+  let announceReactions = {};
+  let announceLoaded = false;
+  let announceRevealId = null;
+
+  function announceCutoffISO(){
+    return new Date(Date.now() - ANNOUNCE_TTL_HOURS*3600*1000).toISOString();
+  }
+  function announceTimeLeft(createdAt){
+    const expires = new Date(createdAt).getTime() + ANNOUNCE_TTL_HOURS*3600*1000;
+    const msLeft = expires - Date.now();
+    if(msLeft <= 0) return 'expiring…';
+    const hrs = Math.floor(msLeft/3600000);
+    const mins = Math.floor((msLeft%3600000)/60000);
+    return hrs > 0 ? `${hrs}h ${mins}m left` : `${mins}m left`;
+  }
+  function announceReactionCounts(id){
+    const rows = announceReactions[id] || [];
+    return { likes: rows.filter(r=>r.reaction==='like'), dislikes: rows.filter(r=>r.reaction==='dislike') };
+  }
+  function announceMyReaction(id){
+    if(!currentUser) return null;
+    const rows = announceReactions[id] || [];
+    const mine = rows.find(r=>r.roll === currentUser.roll);
+    return mine ? mine.reaction : null;
+  }
+
+  async function fetchAnnouncements(){
+    try{
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/cbe_announcements?select=*&created_at=gte.${encodeURIComponent(announceCutoffISO())}&order=created_at.desc`, { headers: announceHeaders() });
+      if(!res.ok) throw new Error('fetch failed: ' + res.status);
+      announcements = await res.json();
+      const ids = announcements.map(a=>a.id);
+      if(ids.length){
+        const res2 = await fetch(`${SUPABASE_URL}/rest/v1/cbe_announcement_reactions?select=*&announcement_id=in.(${ids.join(',')})`, { headers: announceHeaders() });
+        const rows = res2.ok ? await res2.json() : [];
+        const grouped = {};
+        rows.forEach(r=>{ (grouped[r.announcement_id] = grouped[r.announcement_id] || []).push(r); });
+        announceReactions = grouped;
+      } else {
+        announceReactions = {};
+      }
+    }catch(e){
+      console.warn('announcements fetch failed', e);
+    }
+    announceLoaded = true;
+  }
+
+  function renderAnnounceBell(){
+    const dot = document.getElementById('announceBellDot');
+    if(dot) dot.style.display = announcements.length ? 'block' : 'none';
+    const banner = document.getElementById('announceBanner');
+    const bannerText = document.getElementById('announceBannerText');
+    if(banner && bannerText){
+      if(announcements.length && !announceBannerDismissed){
+        bannerText.textContent = announcements[0].message;
+        banner.style.display = 'flex';
+      } else {
+        banner.style.display = 'none';
+      }
+    }
+  }
+
+  let announceBannerDismissed = false;
+
+  async function renderAnnouncePanel(){
+    const wrap = document.getElementById('announceList');
+    if(!wrap) return;
+    if(!announceLoaded) await fetchAnnouncements();
+    renderAnnounceBell();
+
+    const isAdmin = announceIsAdmin();
+    const composer = document.getElementById('announceComposerWrap');
+    if(composer) composer.style.display = isAdmin ? 'block' : 'none';
+
+    wrap.innerHTML = announcements.length ? announcements.map(a=>{
+      const { likes, dislikes } = announceReactionCounts(a.id);
+      const mine = announceMyReaction(a.id);
+      const showWho = isAdmin && announceRevealId === a.id;
+      const whoBlock = showWho ? `
+        <div class="announce-who">
+          ${likes.length ? `<div><b>👍 ${likes.length}</b>${likes.map(r=>escapeHtml(STUDENT_MAP[r.roll]||r.roll)).join(', ')}</div>` : ''}
+          ${dislikes.length ? `<div><b>👎 ${dislikes.length}</b>${dislikes.map(r=>escapeHtml(STUDENT_MAP[r.roll]||r.roll)).join(', ')}</div>` : ''}
+          ${(!likes.length && !dislikes.length) ? `<div class="announce-who-empty">No reactions yet</div>` : ''}
+        </div>` : '';
+      return `
+      <div class="announce-item">
+        <div class="announce-item-top">
+          <span class="announce-time">${announceTimeLeft(a.created_at)}</span>
+          ${isAdmin ? `<button class="announce-del" data-del-id="${a.id}" title="Delete">🗑</button>` : ''}
+        </div>
+        <div class="announce-msg">${escapeHtml(a.message)}</div>
+        <div class="announce-actions">
+          <button class="announce-react like ${mine==='like'?'active':''}" data-react-id="${a.id}" data-react-type="like">👍 <span>${likes.length}</span></button>
+          <button class="announce-react dislike ${mine==='dislike'?'active':''}" data-react-id="${a.id}" data-react-type="dislike">👎 <span>${dislikes.length}</span></button>
+          ${isAdmin ? `<button class="announce-who-toggle" data-who-id="${a.id}">${showWho?'Hide':'Who reacted?'}</button>` : ''}
+        </div>
+        ${whoBlock}
+      </div>`;
+    }).join('') : `<div class="announce-empty">No active announcements right now.</div>`;
+
+    wrap.querySelectorAll('[data-react-id]').forEach(btn=>{
+      btn.addEventListener('click', ()=> toggleAnnounceReaction(btn.dataset.reactId, btn.dataset.reactType));
+    });
+    wrap.querySelectorAll('[data-del-id]').forEach(btn=>{
+      btn.addEventListener('click', ()=> deleteAnnouncement(btn.dataset.delId));
+    });
+    wrap.querySelectorAll('[data-who-id]').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        announceRevealId = announceRevealId === btn.dataset.whoId ? null : btn.dataset.whoId;
+        renderAnnouncePanel();
+      });
+    });
+  }
+
+  async function toggleAnnounceReaction(id, type){
+    if(!currentUser) return;
+    const rows = announceReactions[id] || [];
+    const existing = rows.find(r=>r.roll === currentUser.roll);
+    try{
+      if(existing && existing.reaction === type){
+        await fetch(`${SUPABASE_URL}/rest/v1/cbe_announcement_reactions?announcement_id=eq.${id}&roll=eq.${encodeURIComponent(currentUser.roll)}`, {
+          method:'DELETE', headers: announceHeaders()
+        });
+      } else if(existing){
+        await fetch(`${SUPABASE_URL}/rest/v1/cbe_announcement_reactions?announcement_id=eq.${id}&roll=eq.${encodeURIComponent(currentUser.roll)}`, {
+          method:'PATCH', headers: announceHeaders(), body: JSON.stringify({ reaction: type })
+        });
+      } else {
+        await fetch(`${SUPABASE_URL}/rest/v1/cbe_announcement_reactions`, {
+          method:'POST', headers: Object.assign(announceHeaders(), { Prefer:'resolution=merge-duplicates' }),
+          body: JSON.stringify([{ announcement_id: id, roll: currentUser.roll, reaction: type }])
+        });
+      }
+      announceLoaded = false;
+      await renderAnnouncePanel();
+    }catch(e){
+      console.warn('reaction failed', e);
+      flashSaveToast(false, 'Could not save reaction');
+    }
+  }
+
+  async function deleteAnnouncement(id){
+    if(!announceIsAdmin()) return;
+    if(!confirm('Delete this announcement for everyone?')) return;
+    try{
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/cbe_announcements?id=eq.${id}`, { method:'DELETE', headers: announceHeaders() });
+      if(!res.ok) throw new Error('delete failed: ' + res.status);
+      announceLoaded = false;
+      await renderAnnouncePanel();
+      flashSaveToast(true, 'Announcement removed');
+    }catch(e){
+      console.warn('announcement delete failed', e);
+      flashSaveToast(false, 'Delete failed');
+    }
+  }
+
+  async function postAnnouncement(){
+    if(!announceIsAdmin()) return;
+    const input = document.getElementById('announceComposerInput');
+    if(!input) return;
+    const msg = input.value.trim();
+    if(!msg) return;
+    const btn = document.getElementById('announceComposerBtn');
+    if(btn) btn.disabled = true;
+    try{
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/cbe_announcements`, {
+        method:'POST', headers: announceHeaders(),
+        body: JSON.stringify([{ message: msg, created_by: currentUser.roll }])
+      });
+      if(!res.ok) throw new Error('post failed: ' + res.status);
+      input.value = '';
+      announceLoaded = false;
+      announceBannerDismissed = false;
+      await renderAnnouncePanel();
+      flashSaveToast(true, 'Announcement posted');
+    }catch(e){
+      console.warn('announcement post failed', e);
+      flashSaveToast(false, 'Post failed');
+    }finally{
+      if(btn) btn.disabled = false;
+    }
+  }
+
+  const announceBellBtn = document.getElementById('announceBellBtn');
+  const announceOverlay = document.getElementById('announceModalOverlay');
+  const announceCloseBtn = document.getElementById('announceCloseBtn');
+  const announceComposerBtn = document.getElementById('announceComposerBtn');
+  const announceBanner = document.getElementById('announceBanner');
+  const announceBannerClose = document.getElementById('announceBannerClose');
+
+  function openAnnouncePanel(){
+    if(!announceOverlay) return;
+    announceOverlay.style.display = 'flex';
+    announceLoaded = false;
+    renderAnnouncePanel();
+  }
+  function closeAnnouncePanel(){
+    if(announceOverlay) announceOverlay.style.display = 'none';
+    announceRevealId = null;
+  }
+  if(announceBellBtn) announceBellBtn.addEventListener('click', openAnnouncePanel);
+  if(announceCloseBtn) announceCloseBtn.addEventListener('click', closeAnnouncePanel);
+  if(announceOverlay) announceOverlay.addEventListener('click', (e)=>{ if(e.target === announceOverlay) closeAnnouncePanel(); });
+  if(announceComposerBtn) announceComposerBtn.addEventListener('click', postAnnouncement);
+  if(announceBanner) announceBanner.addEventListener('click', (e)=>{
+    if(e.target === announceBannerClose) return;
+    openAnnouncePanel();
+  });
+  if(announceBannerClose) announceBannerClose.addEventListener('click', (e)=>{
+    e.stopPropagation();
+    announceBannerDismissed = true;
+    renderAnnounceBell();
+  });
 
   let saveToastTimer = null;
   function flashSaveToast(ok, msg){
@@ -1893,6 +2132,15 @@
 
   setInterval(tickClock, 1000);
   tickClock();
+
+  setInterval(async ()=>{
+    if(!currentUser) return;
+    announceLoaded = false;
+    await fetchAnnouncements();
+    renderAnnounceBell();
+    if(announceOverlay && announceOverlay.style.display === 'flex') renderAnnouncePanel();
+  }, 45000);
+
   tryAutoLogin();
 
 })();
