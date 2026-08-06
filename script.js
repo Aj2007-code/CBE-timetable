@@ -12,7 +12,7 @@
   // Paste your Apps Script Web App URL here (see SHEET_SETUP.md).
   const SESSION_LOG_URL = "https://script.google.com/macros/s/AKfycbyU7zwzJ-IMB0JHVxlinK9Modtbp8NG7W_YC6b4F6Via_8RJUgVdz_JE4QDPxF4wIjd/exec";
   // Roll numbers that should never be logged (e.g. your own, while testing).
-  const SESSION_LOG_EXCLUDE = ["2501CB23"];
+  const SESSION_LOG_EXCLUDE = ["2501CB23","2501CB04","2501CB49","2501CB15","2501CB53","2501CB39","2501CB43","2501CB47","2503CB01","2501CB09","2501CB35","2501CB41","2503CB03","2501CB06","2501CB55","2501CB33","2501CB61","2501CB48","2503CB05","2501CB28","2501CB22","2501CB64","2501CB34","2501CB30","2501CB27","2501CB29","2501CB40","2501CB31","2501CB60","2501CB42","2501CB53"];
 
   const SessionTracker = (function(){
     let sessionId = null;
