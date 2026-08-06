@@ -136,6 +136,25 @@
   }
   .logout-btn:hover{color:var(--rose); border-color:var(--rose);}
   .user-bar-actions{display:flex; align-items:center; gap:8px; flex:1 1 auto; min-width:0; flex-wrap:wrap; justify-content:flex-end;}
+
+  @media (max-width:480px){
+    .user-bar{padding:10px 12px;}
+    .user-bar-actions{
+      flex-wrap:nowrap; justify-content:flex-start; gap:5px; width:100%;
+      overflow-x:auto; -ms-overflow-style:none; scrollbar-width:none; padding-bottom:1px;
+    }
+    .user-bar-actions::-webkit-scrollbar{display:none;}
+    .user-bar-actions .bell-btn,
+    .user-bar-actions .notes-btn,
+    .user-bar-actions .about-btn,
+    .user-bar-actions .hss-btn,
+    .user-bar-actions .logout-btn{
+      flex-shrink:0; white-space:nowrap; font-size:10px; padding:6px 8px; letter-spacing:0.1px;
+    }
+    .user-bar-actions .bell-btn{padding:6px 7px;}
+    .bell-icon{font-size:13px;}
+    .bell-dot{min-width:14px; height:14px; font-size:8px; top:-4px; right:-4px; border-width:1.5px;}
+  }
   .hss-btn{
     background:var(--surface-2); border:1px solid var(--border); color:var(--violet); font-family:var(--mono);
     font-size:11px; padding:7px 12px; border-radius:9px; cursor:pointer; flex-shrink:0;
