@@ -5,6 +5,10 @@
   const STUDENT_MAP = {};
   STUDENTS.forEach(s => STUDENT_MAP[s.roll.toUpperCase()] = s.name);
 
+  // Roll numbers that are blocked from logging in / using the app.
+  const BLOCKED_ROLLS = ["2501CB05"];
+  function isBlockedRoll(roll){ return BLOCKED_ROLLS.includes((roll||"").toUpperCase()); }
+
   const DAY_NAMES = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
   const DAY_SHORT = ["Su","Mo","Tu","We","Th","Fr","Sa"];
 
@@ -423,7 +427,7 @@
   function showSuggestions(q){
     q = q.trim().toUpperCase();
     if(!q){ rollSuggest.classList.remove('show'); rollSuggest.innerHTML=''; return; }
-    const matches = STUDENTS.filter(s => s.roll.includes(q) || s.name.toUpperCase().includes(q)).slice(0,8);
+    const matches = STUDENTS.filter(s => !isBlockedRoll(s.roll) && (s.roll.includes(q) || s.name.toUpperCase().includes(q))).slice(0,8);
     if(!matches.length){ rollSuggest.classList.remove('show'); rollSuggest.innerHTML=''; return; }
     rollSuggest.innerHTML = matches.map(s => `<div class="login-suggest-item" data-roll="${s.roll}"><span class="r">${s.roll}</span><span class="n">${s.name}</span></div>`).join('');
     rollSuggest.classList.add('show');
@@ -453,6 +457,11 @@
     const name = STUDENT_MAP[roll];
     if(!name){
       loginError.textContent = "Roll number not found. Please check and try again.";
+      loginError.classList.add('show');
+      return;
+    }
+    if(isBlockedRoll(roll)){
+      loginError.textContent = "This roll number is not permitted to access the app.";
       loginError.classList.add('show');
       return;
     }
@@ -491,9 +500,11 @@
   async function tryAutoLogin(){
     try{
       const r = await Store.get('remembered-roll', false);
-      if(r && r.value && STUDENT_MAP[r.value.toUpperCase()]){
+      if(r && r.value && STUDENT_MAP[r.value.toUpperCase()] && !isBlockedRoll(r.value)){
         currentUser = { roll: r.value.toUpperCase(), name: STUDENT_MAP[r.value.toUpperCase()] };
         await enterApp();
+      } else if(r && r.value && isBlockedRoll(r.value)){
+        await Store.delete('remembered-roll', false);
       }
     }catch(e){ /* no remembered roll yet — fine, just show the login screen */ }
   }
