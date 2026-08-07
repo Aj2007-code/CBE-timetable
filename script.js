@@ -6,7 +6,7 @@
   STUDENTS.forEach(s => STUDENT_MAP[s.roll.toUpperCase()] = s.name);
 
   // Roll numbers that are blocked from logging in / using the app.
-  const BLOCKED_ROLLS = [""];
+  const BLOCKED_ROLLS = ["2501CB05","2501CB64"];
   function isBlockedRoll(roll){ return BLOCKED_ROLLS.includes((roll||"").toUpperCase()); }
 
   const DAY_NAMES = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
