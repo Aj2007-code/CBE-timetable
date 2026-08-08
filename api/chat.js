@@ -48,29 +48,111 @@ function getLatestUserQuestion(trimmedMessages) {
   return '';
 }
 
+async function getEmbedding(text) {
+  const key = process.env.VOYAGE_API_KEY;
+  if (!key || !text || !text.trim()) return null;
+  try {
+    const res = await fetch('https://api.voyageai.com/v1/embeddings', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'authorization': `Bearer ${key}`
+      },
+      body: JSON.stringify({
+        input: [text.slice(0, 4000)],
+        model: 'voyage-3.5-lite'
+      })
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data && data.data && data.data[0] && data.data[0].embedding ? data.data[0].embedding : null;
+  } catch (e) {
+    return null;
+  }
+}
+
 async function getRelevantReferences(question) {
   if (!supabase || !question || question.trim().length < 3) return [];
+
+  // Best: semantic search — matches by MEANING, so a differently
+  // phrased or informally-worded question still finds the relevant
+  // past answer, no matter how old it is.
+  const embedding = await getEmbedding(question);
+  if (embedding) {
+    try {
+      const { data, error } = await supabase.rpc('match_ai_knowledge_semantic', {
+        query_embedding: embedding,
+        match_count: 5
+      });
+      if (!error && data && data.length) return data;
+    } catch (e) {
+      // fall through to keyword-based search below
+    }
+  }
+
+  // Fallback (no embeddings key configured, or semantic search found
+  // nothing): plain full-text search on exact-ish wording.
   try {
     const { data, error } = await supabase
       .from('cbe_ai_knowledge')
       .select('question, answer')
       .textSearch('search_vector', question, { type: 'plain', config: 'english' })
-      .limit(3);
+      .limit(5);
 
-    if (error || !data) return [];
-    return data;
+    if (!error && data && data.length) return data;
+
+    // Last resort: fuzzy trigram match for rephrased/informal wording.
+    const { data: fuzzyData, error: fuzzyError } = await supabase.rpc('match_ai_knowledge', {
+      search_query: question,
+      match_count: 5
+    });
+
+    if (fuzzyError || !fuzzyData) return [];
+    return fuzzyData;
   } catch (e) {
     return [];
+  }
+}
+
+async function loadChatHistory(rollNumber, limit) {
+  if (!supabase || !rollNumber) return [];
+  try {
+    const { data, error } = await supabase
+      .from('cbe_ai_chat_history')
+      .select('role, content')
+      .eq('roll_number', rollNumber)
+      .order('created_at', { ascending: false })
+      .limit(limit);
+
+    if (error || !data) return [];
+    return data.reverse(); // chronological order for the model
+  } catch (e) {
+    return [];
+  }
+}
+
+async function saveChatTurn(rollNumber, role, content) {
+  if (!supabase || !rollNumber || !content) return;
+  try {
+    await supabase.from('cbe_ai_chat_history').insert({
+      roll_number: rollNumber,
+      role,
+      content: content.slice(0, 4000)
+    });
+  } catch (e) {
+    // Non-fatal — history logging should never break the chat response.
   }
 }
 
 async function saveQA(question, answer, rollNumber) {
   if (!supabase || !question || !answer) return;
   try {
+    const embedding = await getEmbedding(question);
     await supabase.from('cbe_ai_knowledge').insert({
       question: question.slice(0, 2000),
       answer: answer.slice(0, 4000),
-      roll_number: rollNumber || null
+      roll_number: rollNumber || null,
+      embedding: embedding || null
     });
   } catch (e) {
     // Non-fatal — memory logging should never break the chat response.
@@ -120,20 +202,33 @@ module.exports = async function handler(req, res) {
     return;
   }
 
-  const trimmed = messages.slice(-12).map(m => ({
+  const trimmed = messages.slice(-20).map(m => ({
     role: m.role === 'assistant' ? 'assistant' : 'user',
     content: String(m.content || '').slice(0, 4000)
   }));
+
+  const rollNumber = body && body.context && body.context.rollNumber;
+
+  // If the client only sent a short/fresh conversation (e.g. page just
+  // loaded), pull in this student's stored history so the AI picks up
+  // where earlier sessions left off, instead of starting from scratch.
+  let effectiveMessages = trimmed;
+  if (rollNumber && trimmed.length <= 2) {
+    const history = await loadChatHistory(rollNumber, 30);
+    if (history.length) {
+      effectiveMessages = [...history, ...trimmed].slice(-30);
+    }
+  }
 
   const latestQuestion = getLatestUserQuestion(trimmed);
   const references = await getRelevantReferences(latestQuestion);
   const systemPrompt = buildSystemPrompt(body && body.context, references);
 
   try {
-    let upstream = await callGroq(apiKey, PRIMARY_MODEL, systemPrompt, trimmed);
+    let upstream = await callGroq(apiKey, PRIMARY_MODEL, systemPrompt, effectiveMessages);
 
     if (!upstream.ok && (upstream.status === 429 || upstream.status >= 500)) {
-      upstream = await callGroq(apiKey, FALLBACK_MODEL, systemPrompt, trimmed);
+      upstream = await callGroq(apiKey, FALLBACK_MODEL, systemPrompt, effectiveMessages);
     }
 
     if (!upstream.ok) {
@@ -157,8 +252,13 @@ module.exports = async function handler(req, res) {
       return;
     }
 
-    // Save this exchange so future students' questions can benefit from it.
-    await saveQA(latestQuestion, reply, body && body.context && body.context.rollNumber);
+    // Save this exchange so future students' questions can benefit from it,
+    // and so this specific student's conversation persists across sessions.
+    await saveQA(latestQuestion, reply, rollNumber);
+    if (rollNumber) {
+      await saveChatTurn(rollNumber, 'user', latestQuestion);
+      await saveChatTurn(rollNumber, 'assistant', reply);
+    }
 
     res.status(200).json({ reply });
   } catch (e) {
