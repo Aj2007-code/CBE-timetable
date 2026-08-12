@@ -6,10 +6,12 @@
   STUDENTS.forEach(s => STUDENT_MAP[s.roll.toUpperCase()] = s.name);
 
   // Roll numbers that are blocked from logging in / using the app.
+  // (empty by default — add roll numbers here, e.g. ["2501CB99"], to block them.)
+  const BLOCKED_ROLLS = [];
 
-function isBlockedRoll(roll){
-  return BLOCKED_ROLLS.includes(String(roll).toUpperCase());
-}
+  function isBlockedRoll(roll){
+    return BLOCKED_ROLLS.includes(String(roll).toUpperCase());
+  }
 
   const DAY_NAMES = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
   const DAY_SHORT = ["Su","Mo","Tu","We","Th","Fr","Sa"];
@@ -18,7 +20,7 @@ function isBlockedRoll(roll){
   // Paste your Apps Script Web App URL here (see SHEET_SETUP.md).
   const SESSION_LOG_URL = "https://script.google.com/macros/s/AKfycbyU7zwzJ-IMB0JHVxlinK9Modtbp8NG7W_YC6b4F6Via_8RJUgVdz_JE4QDPxF4wIjd/exec";
   // Roll numbers that should never be logged (e.g. your own, while testing).
-  const SESSION_LOG_EXCLUDE = ["2501CB23","2501CB04","2501CB49","2501CB15","2501CB53","2501CB39","2501CB43","2501CB47","2503CB01","2501CB09","2501CB35","2501CB41","2503CB03","2501CB06","2501CB55","2501CB33","2501CB61","2501CB48","2503CB05","2501CB28","2501CB22","2501CB64","2501CB34","2501CB30","2501CB27","2501CB29","2501CB40","2501CB31","2501CB60","2501CB42","2501CB53"];
+  const SESSION_LOG_EXCLUDE = ["2501CB23","2501CB04","2501CB49","2501CB15","2501CB53","2501CB39","2501CB43","2501CB47","2503CB01","2501CB09","2501CB35","2501CB41","2503CB03","2501CB06","2501CB55","2501CB33","2501CB61","2501CB48","2503CB05","2501CB28","2501CB22","2501CB64","2501CB34","2501CB30","2501CB27","2501CB29","2501CB40","2501CB31","2501CB60","2501CB42"];
 
   const SessionTracker = (function(){
     let sessionId = null;
@@ -116,7 +118,7 @@ function isBlockedRoll(roll){
     { day:3, start:tm(9,0),  end:tm(9,55),  code:"CB2105", type:"lecture", room:"R307" },
     { day:3, start:tm(10,0), end:tm(10,55), code:"CB2103", type:"lecture", room:"R307" },
     { day:3, start:tm(15,0), end:tm(16,55), code:"CB2102", type:"lecture", room:"R102" },
-    { day:3, start:tm(17,0), end:tm(17,55), code:"CB2104", type:"lecture", room:"LT001" },
+    { day:3, start:tm(17,0), end:tm(17,55), code:"CB2104", type:"lecture", room:"CLH" },
 
     // Thursday
     { day:4, start:tm(10,0), end:tm(12,55), code:"CB2103", type:"lab",     room:"Lab"  },
