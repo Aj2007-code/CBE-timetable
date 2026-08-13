@@ -118,17 +118,18 @@
     { day:3, start:tm(9,0),  end:tm(9,55),  code:"CB2105", type:"lecture", room:"R307" },
     { day:3, start:tm(10,0), end:tm(10,55), code:"CB2103", type:"lecture", room:"R307" },
     { day:3, start:tm(15,0), end:tm(16,55), code:"CB2102", type:"lecture", room:"R102" },
-    { day:3, start:tm(17,0), end:tm(17,55), code:"CB2104", type:"lecture", room:"CLH" },
+    { day:3, start:tm(17,0), end:tm(17,55), code:"CB2104", type:"lecture", room:"LT001" },
 
     // Thursday
     { day:4, start:tm(10,0), end:tm(12,55), code:"CB2103", type:"lab",     room:"Lab"  },
     { day:4, start:tm(15,0), end:tm(15,55), code:"CB2103", type:"lecture", room:"R102" },
-    { day:4, start:tm(16,0), end:tm(18,0),  code:"CB2104", type:"lecture", room:"CLH"  },
+    { day:4, start:tm(16,0), end:tm(18,0),  code:"CB2104", type:"lecture", room:"LT001"  },
 
     // Friday
+    { day:5, start:tm(9,0),  end:tm(9,55),  code:"CB2105", type:"lecture", room:"R110" },
     { day:5, start:tm(10,0), end:tm(11,55), code:"CB2102", type:"lab",     room:"Lab"  },
     { day:5, start:tm(15,0), end:tm(15,55), code:"CB2102", type:"lecture", room:"R102" },
-    { day:5, start:tm(16,0), end:tm(16,55), code:"CB2105", type:"lecture", room:"R102" },
+ 
   ].sort((a,b)=> a.day-b.day || a.start-b.start);
 
   const COURSE_CODES = [...new Set(SCHEDULE.map(s=>s.code))].sort();
