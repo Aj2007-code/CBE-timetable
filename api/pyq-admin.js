@@ -1,6 +1,6 @@
 const SUPABASE_URL = "https://ektzrezmwzhautdmbrwf.supabase.co";
 const BUCKET = "pyq";
-const MAX_BYTES = 3 * 1024 * 1024; 
+const MAX_BYTES = 100  * 1024 * 1024; 
 const ADMIN_ROLL = "2501CB23";
 
 function serviceHeaders(extra) {
@@ -56,7 +56,7 @@ module.exports = async (req, res) => {
 
       const buf = Buffer.from(fileBase64, "base64");
       if (buf.length > MAX_BYTES) {
-        res.status(413).json({ error: "File too large — keep PDFs under 3MB" });
+        res.status(413).json({ error: "File too large — keep PDFs under 100MB" });
         return;
       }
 
