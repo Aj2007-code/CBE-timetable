@@ -258,6 +258,15 @@
     return !!(currentUser && currentUser.roll === PYQ_ADMIN_ROLL);
   }
 
+  const BOOKS_BUCKET = "books";
+  const BOOKS_ADMIN_ROLL = "2501CB23";
+  function booksPublicUrl(storagePath){
+    return `${SUPABASE_URL}/storage/v1/object/public/${BOOKS_BUCKET}/${storagePath}`;
+  }
+  function booksIsAdmin(){
+    return !!(currentUser && currentUser.roll === BOOKS_ADMIN_ROLL);
+  }
+
   // ===== Announcements =====
   const ANNOUNCE_ADMIN_ROLL = "2501CB23";
   const ANNOUNCE_TTL_HOURS = 6;
@@ -1892,6 +1901,205 @@
     }
   }
 
+  let booksFiles = {};
+  let booksOpenCourse = null;
+  let booksLoaded = false;
+
+  async function fetchBooksFiles(){
+    try{
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/cbe_reference_books?select=*&order=created_at.desc`, {
+        headers: { apikey: SUPABASE_ANON_KEY, Authorization: 'Bearer ' + SUPABASE_ANON_KEY }
+      });
+      if(!res.ok) throw new Error('fetch failed: ' + res.status);
+      const rows = await res.json();
+      const grouped = {};
+      rows.forEach(r=>{
+        if(!grouped[r.course_code]) grouped[r.course_code] = [];
+        grouped[r.course_code].push(r);
+      });
+      booksFiles = grouped;
+    }catch(e){
+      console.warn('books fetch failed', e);
+      booksFiles = booksFiles || {};
+    }
+    booksLoaded = true;
+  }
+
+  async function renderBooksView(){
+    const wrap = document.getElementById('booksList');
+    if(!wrap) return;
+    if(!booksLoaded) await fetchBooksFiles();
+
+    const isAdmin = booksIsAdmin();
+    const badge = document.getElementById('booksAdminBadge');
+    if(badge) badge.style.display = isAdmin ? 'inline-block' : 'none';
+
+    const codes = activeCourseCodes();
+    wrap.innerHTML = codes.map(code=>{
+      const files = (booksFiles[code] || []).slice().sort((a,b)=> new Date(b.created_at) - new Date(a.created_at));
+      const open = booksOpenCourse === code;
+      const fileRows = files.length
+        ? files.map(f=>`
+          <div class="pyq-file-row">
+            <span class="pyq-file-icon"></span>
+            <div class="pyq-file-info">
+              <div class="pyq-file-name">${f.title || f.file_name}</div>
+              <div class="pyq-file-meta">${pyqFmtSize(f.size_bytes)}</div>
+            </div>
+            <div class="pyq-file-actions">
+              <a href="${booksPublicUrl(f.storage_path)}" target="_blank" rel="noopener">View</a>
+              <a href="${booksPublicUrl(f.storage_path)}" download="${f.file_name}">Download</a>
+              ${isAdmin ? `<button class="pyq-file-del" data-bdel-id="${f.id}" data-bdel-path="${f.storage_path}" title="Delete">🗑</button>` : ''}
+            </div>
+          </div>`).join("")
+        : `<div class="pyq-empty">No reference material uploaded yet for this course.</div>`;
+
+      const addRow = isAdmin ? `
+        <div class="pyq-add-row">
+          <button class="pyq-add-btn" data-badd-code="${code}">+ Upload PDF for ${code}</button>
+          <input type="file" accept="application/pdf" class="books-file-input" data-binput-code="${code}" style="display:none;" />
+          <div class="pyq-uploading" data-buploading-code="${code}" style="display:none;">Uploading…</div>
+        </div>` : '';
+
+      return `
+      <div class="pyq-course ${open?'open':''}" data-bcourse="${code}">
+        <div class="pyq-course-head" data-btoggle-code="${code}">
+          <div class="pyq-course-title">
+            <span class="pyq-course-code">${code}</span>
+            ${nameSpan(code,'pyq-course-name')}
+          </div>
+          <div class="pyq-course-right">
+            <span class="pyq-course-count">${files.length} file${files.length===1?'':'s'}</span>
+            <span class="pyq-chevron">▶</span>
+          </div>
+        </div>
+        <div class="pyq-course-body">
+          ${fileRows}
+          ${addRow}
+        </div>
+      </div>`;
+    }).join("") || `<div class="pyq-empty">No courses to show yet.</div>`;
+
+    wrap.querySelectorAll('[data-btoggle-code]').forEach(el=>{
+      el.addEventListener('click', ()=>{
+        const code = el.dataset.btoggleCode;
+        booksOpenCourse = (booksOpenCourse === code) ? null : code;
+        renderBooksView();
+      });
+    });
+    wrap.querySelectorAll('[data-bdel-id]').forEach(btn=>{
+      btn.addEventListener('click', (ev)=>{
+        ev.stopPropagation();
+        booksDeleteFile(btn.dataset.bdelId, btn.dataset.bdelPath);
+      });
+    });
+    wrap.querySelectorAll('[data-badd-code]').forEach(btn=>{
+      btn.addEventListener('click', (ev)=>{
+        ev.stopPropagation();
+        const code = btn.dataset.baddCode;
+        const input = wrap.querySelector(`.books-file-input[data-binput-code="${code}"]`);
+        if(input) input.click();
+      });
+    });
+    wrap.querySelectorAll('.books-file-input').forEach(input=>{
+      input.addEventListener('click', ev=> ev.stopPropagation());
+      input.addEventListener('change', ()=>{
+        const file = input.files && input.files[0];
+        if(file) booksUploadFile(input.dataset.binputCode, file);
+        input.value = '';
+      });
+    });
+  }
+
+  const BOOKS_MAX_BYTES = 50 * 1024 * 1024; // matches Supabase free-plan project-wide cap
+
+  async function booksUploadFile(courseCode, file){
+    if(!booksIsAdmin()) return;
+    if(file.type !== 'application/pdf' && !/\.pdf$/i.test(file.name)){
+      flashSaveToast(false, 'Only PDF files are supported');
+      return;
+    }
+    if(file.size > BOOKS_MAX_BYTES){
+      flashSaveToast(false, 'File too big — keep PDFs under 50MB');
+      return;
+    }
+
+    const loadingEl = document.querySelector(`[data-buploading-code="${courseCode}"]`);
+    if(loadingEl) loadingEl.style.display = 'block';
+    try{
+      // Step 1: ask our function for a signed upload URL (tiny request).
+      const signRes = await fetch('/api/books-admin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ roll: currentUser.roll, action:'get-upload-url', courseCode, fileName: file.name, fileSize: file.size })
+      });
+      const signData = await signRes.json().catch(()=>({}));
+      if(!signRes.ok || !signData.ok){
+        flashSaveToast(false, signData.error || 'Upload failed');
+        return;
+      }
+
+      // Step 2: browser uploads the file DIRECTLY to Supabase Storage —
+      // this bypasses Vercel's function body limit entirely.
+      const putRes = await fetch(signData.uploadUrl, {
+        method: 'PUT',
+        headers: { 'Content-Type': file.type || 'application/pdf', 'x-upsert': 'true' },
+        body: file
+      });
+      if(!putRes.ok){
+        flashSaveToast(false, 'Upload to storage failed');
+        return;
+      }
+
+      // Step 3: confirm — tiny JSON payload, just saves the DB row.
+      const confirmRes = await fetch('/api/books-admin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          roll: currentUser.roll, action:'confirm', courseCode,
+          fileName: signData.cleanName, storagePath: signData.storagePath, sizeBytes: file.size
+        })
+      });
+      const confirmData = await confirmRes.json().catch(()=>({}));
+      if(!confirmRes.ok || !confirmData.ok){
+        flashSaveToast(false, confirmData.error || 'Could not save book record');
+        return;
+      }
+
+      flashSaveToast(true, 'Book uploaded');
+      booksLoaded = false;
+      await renderBooksView();
+    }catch(e){
+      console.warn('books upload failed', e);
+      flashSaveToast(false, 'Upload failed');
+    }finally{
+      if(loadingEl) loadingEl.style.display = 'none';
+    }
+  }
+
+  async function booksDeleteFile(id, storagePath){
+    if(!booksIsAdmin()) return;
+    if(!confirm('Delete this book for everyone?')) return;
+    try{
+      const res = await fetch('/api/books-admin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ roll: currentUser.roll, action:'delete', id, storagePath })
+      });
+      const data = await res.json().catch(()=>({}));
+      if(!res.ok || !data.ok){
+        flashSaveToast(false, data.error || 'Delete failed');
+        return;
+      }
+      flashSaveToast(true, 'Deleted');
+      booksLoaded = false;
+      await renderBooksView();
+    }catch(e){
+      console.warn('books delete failed', e);
+      flashSaveToast(false, 'Delete failed');
+    }
+  }
+
   let spiCourses = []; 
 
   function renderSpiView(){
@@ -2143,6 +2351,7 @@
     renderCreditsView();
     renderSpiView();
     renderPyqView();
+    renderBooksView();
     renderHero();
   }
 
