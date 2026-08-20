@@ -790,7 +790,10 @@
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ messages: chatHistory })
+        body: JSON.stringify({
+          messages: chatHistory,
+          context: currentUser ? { rollNumber: currentUser.roll } : {}
+        })
       });
       const data = await res.json().catch(()=>null);
       typingEl.classList.remove('typing');
