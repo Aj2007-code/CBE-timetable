@@ -127,7 +127,6 @@
 
     // Friday
     { day:5, start:tm(9,0),  end:tm(9,55),  code:"CB2105", type:"lecture", room:"R110" },
-    { day:5, start:tm(10,0), end:tm(11,55), code:"CB2102", type:"lab",     room:"Lab"  },
     { day:5, start:tm(15,0), end:tm(15,55), code:"CB2102", type:"lecture", room:"R102" },
  
   ].sort((a,b)=> a.day-b.day || a.start-b.start);
@@ -164,6 +163,79 @@
   }
 
   const LAB_SPLIT_COURSES = new Set(["CB2102", "CB2103"]); 
+
+  // ---- CB2102 Fluid Mechanics Lab: 16 groups, alternating weeks ----
+  // Groups 1-8 ("set A") and Groups 9-16 ("set B") take the lab on
+  // alternating weeks. Roster sourced from CB2102_LAB_Group_list.pdf.
+  const FLUID_LAB_GROUPS = {
+    1: ["2501CB01", "2501CB02", "2501CB03", "2501CB04", "2501CB05", "2501CT07", "2501CT26"],
+    2: ["2501CB06", "2501CB07", "2501CB08", "2501CB09", "2501CB10", "2501CT19", "2501CT23"],
+    3: ["2501CB11", "2501CB12", "2501CB13", "2501CB14", "2501CB15", "2501CT22", "2501CT38"],
+    4: ["2501CB16", "2501CB17", "2501CB18", "2501CB19", "2501CT08", "2501CT16", "2501CT31"],
+    5: ["2501CB20", "2501CB21", "2501CB22", "2501CB23", "2501CT20", "2501CT30", "2503CT01"],
+    6: ["2501CB24", "2501CB25", "2501CB26", "2501CB27", "2501CB28", "2501CT10", "2501CT37"],
+    7: ["2501CB29", "2501CB30", "2501CB31", "2501CT03", "2501CT05", "2501CT36"],
+    8: ["2501CB32", "2501CB33", "2501CB34", "2501CB35", "2501CT01", "2503CT03"],
+    9: ["2501CB36", "2501CB37", "2501CB38", "2501CB39", "2501CB40", "2501CT17", "2501CT28"],
+    10: ["2501CB41", "2501CB42", "2501CB43", "2501CB44", "2501CB45", "2501CT25", "2501CT34"],
+    11: ["2501CB46", "2501CB47", "2501CB48", "2501CB49", "2501CB50", "2501CT11", "2501CT35"],
+    12: ["2501CB51", "2501CB52", "2501CB53", "2501CB54", "2501CB55", "2501CT09", "2501CT27"],
+    13: ["2501CB56", "2501CB58", "2501CB60", "2501CT02", "2501CT06", "2501CT13", "2501CT29"],
+    14: ["2501CB61", "2501CB62", "2501CB63", "2501CB64", "2501CT12", "2501CT18", "2501CT32"],
+    15: ["2501CB65", "2501CT14", "2501CT15", "2503CB01", "2503CB02", "2503CT02"],
+    16: ["2501CT04", "2501CT21", "2501CT24", "2501CT33", "2503CB03", "2503CB04"],
+  };
+  const FLUID_LAB_GROUP_OF = {};
+  Object.keys(FLUID_LAB_GROUPS).forEach(g=>{
+    FLUID_LAB_GROUPS[g].forEach(roll=>{ FLUID_LAB_GROUP_OF[roll] = Number(g); });
+  });
+  function fluidLabGroupOf(roll){
+    return FLUID_LAB_GROUP_OF[String(roll||"").toUpperCase()] || null;
+  }
+  function fluidLabSetOf(groupNum){
+    if(!groupNum) return null;
+    return groupNum <= 8 ? "A" : "B";
+  }
+  function fluidLabMondayOf(date){
+    const d = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    const dow = d.getDay(); // 0 Sun..6 Sat
+    const diffToMon = (dow === 0 ? -6 : 1) - dow;
+    d.setDate(d.getDate() + diffToMon);
+    return d;
+  }
+  // Week of Mon 24 Aug 2026 confirmed as Set A's (Groups 1-8) turn.
+  // That week's lab was moved from its usual Friday slot to a one-off
+  // Monday 24 Aug 10:00-12:00 session, for Groups 1-8 only.
+  const FLUID_LAB_ANCHOR_MONDAY = fluidLabMondayOf(new Date(2026,7,24));
+  const FLUID_LAB_EXCEPTION_ISO = "2026-08-24";
+  function fluidLabActiveSetForWeek(date){
+    const wkMon = fluidLabMondayOf(date);
+    const diffWeeks = Math.round((wkMon - FLUID_LAB_ANCHOR_MONDAY) / (7*24*60*60*1000));
+    const parity = ((diffWeeks % 2) + 2) % 2;
+    return parity === 0 ? "A" : "B";
+  }
+  // Returns a CB2102 lab session object for this date/group, or null.
+  function fluidLabSessionForDate(date, groupNum){
+    if(!groupNum) return null;
+    const iso = isoDate(date);
+    const mySet = fluidLabSetOf(groupNum);
+    const isExceptionWeek = isoDate(fluidLabMondayOf(date)) === isoDate(FLUID_LAB_ANCHOR_MONDAY);
+
+    // One-off: Monday 24 Aug 2026, Groups 1-8 only.
+    if(iso === FLUID_LAB_EXCEPTION_ISO && mySet === "A"){
+      return { day:1, start:tm(10,0), end:tm(12,0), code:"CB2102", type:"lab", room:"Lab", note:"Shifted from Friday — this week only" };
+    }
+    // During the exception week, nobody gets the normal Friday slot
+    // (Set A already had theirs on Monday; it's not Set B's turn).
+    if(isExceptionWeek) return null;
+
+    // Normal alternating pattern: whichever set is "on" gets Friday's slot.
+    if(date.getDay() === 5 && fluidLabActiveSetForWeek(date) === mySet){
+      return { day:5, start:tm(10,0), end:tm(11,55), code:"CB2102", type:"lab", room:"Lab" };
+    }
+    return null;
+  }
+
 
   const HSS_START = tm(14,0), HSS_END = tm(15,0);
   const HSS_ELECTIVES = [
@@ -790,10 +862,7 @@
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({
-          messages: chatHistory,
-          context: currentUser ? { rollNumber: currentUser.roll } : {}
-        })
+        body: JSON.stringify({ messages: chatHistory })
       });
       const data = await res.json().catch(()=>null);
       typingEl.classList.remove('typing');
@@ -1333,6 +1402,11 @@
     }
     if(ov && ov.extra && ov.extra.length){
       list = list.concat(ov.extra.map(e => Object.assign({}, e, { day: dow, isExtra: true })));
+    }
+    if(currentUser){
+      const grp = fluidLabGroupOf(currentUser.roll);
+      const labSession = fluidLabSessionForDate(date, grp);
+      if(labSession) list = list.concat([labSession]);
     }
     return list.slice().sort((a,b)=> a.start-b.start);
   }
