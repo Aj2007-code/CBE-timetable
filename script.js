@@ -223,7 +223,7 @@
 
     // One-off: Monday 24 Aug 2026, Groups 1-8 only.
     if(iso === FLUID_LAB_EXCEPTION_ISO && mySet === "A"){
-      return { day:1, start:tm(10,0), end:tm(12,0), code:"CB2102", type:"lab", room:"Lab", note:"Shifted from Friday — this week only" };
+      return { day:1, start:tm(11,0), end:tm(13,0), code:"CB2102", type:"lab", room:"Lab", note:"Shifted from Friday — this week only" };
     }
     // During the exception week, nobody gets the normal Friday slot
     // (Set A already had theirs on Monday; it's not Set B's turn).
