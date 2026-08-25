@@ -339,6 +339,12 @@
     return !!(currentUser && currentUser.roll === BOOKS_ADMIN_ROLL);
   }
 
+  // ===== Timetable admin (reschedule / cancel classes for everyone) =====
+  const TIMETABLE_ADMIN_ROLL = "2501CB23";
+  function timetableIsAdmin(){
+    return !!(currentUser && currentUser.roll === TIMETABLE_ADMIN_ROLL);
+  }
+
   // ===== Announcements =====
   const ANNOUNCE_ADMIN_ROLL = "2501CB23";
   const ANNOUNCE_TTL_HOURS = 6;
@@ -423,6 +429,20 @@
       });
       if(!res.ok) throw new Error('supabase set failed: ' + res.status);
     }
+    async function sbGetGlobalOverrides(){
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/cbe_global_overrides?id=eq.1&select=overrides`, { headers: sbHeaders() });
+      if(!res.ok) throw new Error('supabase get failed: ' + res.status);
+      const rows = await res.json();
+      return rows[0] ? JSON.stringify(rows[0].overrides || {}) : null;
+    }
+    async function sbSetGlobalOverrides(valueStr, updatedBy){
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/cbe_global_overrides`, {
+        method: 'POST',
+        headers: Object.assign(sbHeaders(), { Prefer: 'resolution=merge-duplicates' }),
+        body: JSON.stringify([{ id: 1, overrides: JSON.parse(valueStr), updated_by: updatedBy || '', updated_at: new Date().toISOString() }])
+      });
+      if(!res.ok) throw new Error('supabase set failed: ' + res.status);
+    }
     async function sbGetCourseNames(){
       const res = await fetch(`${SUPABASE_URL}/rest/v1/cbe_course_names?id=eq.1&select=names`, { headers: sbHeaders() });
       if(!res.ok) throw new Error('supabase get failed: ' + res.status);
@@ -447,7 +467,7 @@
           catch(e){ return null; }
         }
         if(hasSupabase){
-          if(key.indexOf('attendance:') === 0 || key === 'course-names' || key.indexOf('hss:') === 0 || key.indexOf('dayoverrides:') === 0){
+          if(key.indexOf('attendance:') === 0 || key === 'course-names' || key === 'global-overrides' || key.indexOf('hss:') === 0 || key.indexOf('dayoverrides:') === 0){
             try{
               const raw = key.indexOf('attendance:') === 0
                 ? await sbGetAttendance(key.slice('attendance:'.length))
@@ -455,6 +475,8 @@
                 ? await sbGetHss(key.slice('hss:'.length))
                 : key.indexOf('dayoverrides:') === 0
                 ? await sbGetDayOverrides(key.slice('dayoverrides:'.length))
+                : key === 'global-overrides'
+                ? await sbGetGlobalOverrides()
                 : await sbGetCourseNames();
               if(raw !== null) lsWrite(key, raw); 
               return raw === null ? lsRead(key) : { key, value: raw };
@@ -472,11 +494,12 @@
           try{ const r = await window.storage.set(key, value, shared); return r ? { key, value, synced:true } : { key, value, synced:false }; }
           catch(e){ return { key, value, synced:false }; }
         }
-        if(hasSupabase && (key.indexOf('attendance:') === 0 || key === 'course-names' || key.indexOf('hss:') === 0 || key.indexOf('dayoverrides:') === 0)){
+        if(hasSupabase && (key.indexOf('attendance:') === 0 || key === 'course-names' || key === 'global-overrides' || key.indexOf('hss:') === 0 || key.indexOf('dayoverrides:') === 0)){
           try{
             if(key.indexOf('attendance:') === 0) await sbSetAttendance(key.slice('attendance:'.length), currentUser ? currentUser.name : '', value);
             else if(key.indexOf('hss:') === 0) await sbSetHss(key.slice('hss:'.length), value);
             else if(key.indexOf('dayoverrides:') === 0) await sbSetDayOverrides(key.slice('dayoverrides:'.length), currentUser ? currentUser.name : '', value);
+            else if(key === 'global-overrides') await sbSetGlobalOverrides(value, currentUser ? currentUser.roll : '');
             else await sbSetCourseNames(value);
             return { key, value, synced:true };
           }catch(e){
@@ -500,6 +523,7 @@
   let attendance = {};
   let courseNames = {};
   let dayOverrides = {}; 
+  let globalOverrides = {};
   let currentUser = null; 
 
   const loginScreen = document.getElementById('loginScreen');
@@ -731,25 +755,58 @@
     if(isNaN(h) || isNaN(m)) return null;
     return h*60+m;
   }
+  function minutesToTimeStr(mins){
+    if(mins===null || mins===undefined || isNaN(mins)) return '';
+    const h = Math.floor(mins/60), m = mins%60;
+    return String(h).padStart(2,'0')+':'+String(m).padStart(2,'0');
+  }
 
-  function openAddClassModal(date){
+  let addClassIsGlobal = false;
+  let addClassRescheduleSig = null;
+
+  function openAddClassModal(date, opts){
+    opts = opts || {};
     addClassTargetDate = date;
+    addClassIsGlobal = !!opts.global;
+    addClassRescheduleSig = opts.reschedule ? opts.reschedule.sig : null;
     const { main } = fmtDayLabel(date);
-    document.getElementById('addClassDateLabel').textContent = `For ${main} · only visible on your own timetable, the shared schedule doesn't change.`;
+
+    const titleEl = document.querySelector('#addClassModalOverlay .modal-title');
+    if(titleEl) titleEl.textContent = opts.reschedule ? 'Reschedule this class' : (addClassIsGlobal ? 'Add a class for everyone' : 'Add a class for this day');
+    document.getElementById('addClassDateLabel').textContent = addClassIsGlobal
+      ? `For ${main} · this updates the SHARED timetable — every student will see this change.`
+      : `For ${main} · only visible on your own timetable, the shared schedule doesn't change.`;
 
     const sel = document.getElementById('addClassCourseSelect');
     const codes = [...new Set(activeCourseCodes())];
     sel.innerHTML = codes.map(c=>`<option value="${c}">${c} — ${courseLabel(c)}</option>`).join('')
       + `<option value="__custom__">Other / custom…</option>`;
-    document.getElementById('addClassCustomWrap').style.display = 'none';
-    document.getElementById('addClassCustomCode').value = '';
-    document.getElementById('addClassCustomName').value = '';
-    document.getElementById('addClassStart').value = '';
-    document.getElementById('addClassEnd').value = '';
-    document.getElementById('addClassRoom').value = '';
-    document.getElementById('addClassType').value = 'lecture';
-    document.getElementById('addClassNote').value = '';
+
+    if(opts.reschedule){
+      const r = opts.reschedule;
+      const knownCode = codes.includes(r.code);
+      sel.value = knownCode ? r.code : '__custom__';
+      document.getElementById('addClassCustomWrap').style.display = knownCode ? 'none' : 'block';
+      document.getElementById('addClassCustomCode').value = knownCode ? '' : (r.code || '');
+      document.getElementById('addClassCustomName').value = '';
+      document.getElementById('addClassStart').value = minutesToTimeStr(r.start);
+      document.getElementById('addClassEnd').value = minutesToTimeStr(r.end);
+      document.getElementById('addClassRoom').value = r.room || '';
+      document.getElementById('addClassType').value = r.type || 'lecture';
+      document.getElementById('addClassNote').value = 'Rescheduled';
+    } else {
+      document.getElementById('addClassCustomWrap').style.display = 'none';
+      document.getElementById('addClassCustomCode').value = '';
+      document.getElementById('addClassCustomName').value = '';
+      document.getElementById('addClassStart').value = '';
+      document.getElementById('addClassEnd').value = '';
+      document.getElementById('addClassRoom').value = '';
+      document.getElementById('addClassType').value = 'lecture';
+      document.getElementById('addClassNote').value = '';
+    }
     document.getElementById('addClassError').classList.remove('show');
+    const saveBtn = document.getElementById('addClassSaveBtn');
+    if(saveBtn) saveBtn.textContent = opts.reschedule ? 'Save & update for everyone' : (addClassIsGlobal ? 'Add for everyone' : 'Add class');
 
     addClassOverlay.style.display = 'flex';
   }
@@ -794,7 +851,13 @@
       if(note) session.tag = note;
       if(isCustom && customName) session.name = customName;
 
-      addExtraSessionForDate(addClassTargetDate, session);
+      if(addClassIsGlobal){
+        if(!timetableIsAdmin()){ closeAddClassModal(); return; }
+        if(addClassRescheduleSig) cancelSessionForEveryone(addClassTargetDate, addClassRescheduleSig);
+        addExtraSessionForEveryone(addClassTargetDate, session);
+      } else {
+        addExtraSessionForDate(addClassTargetDate, session);
+      }
       closeAddClassModal();
       renderAll();
     });
@@ -1071,6 +1134,10 @@
       const o = await Store.get(dayOverridesKey(), true);
       if(o && o.value) dayOverrides = JSON.parse(o.value);
     }catch(e){ /* no personal day edits yet — fine */ }
+    try{
+      const g = await Store.get('global-overrides', true);
+      if(g && g.value) globalOverrides = JSON.parse(g.value);
+    }catch(e){ /* no admin reschedules yet — fine */ }
     rebuildPersonalSchedule();
     if(migrateOldCodes()){
       await persistAttendance();
@@ -1344,6 +1411,16 @@
     }catch(e){ console.warn('day override save failed', e); flashSaveToast(false); }
   }
 
+  async function persistGlobalOverrides(){
+    if(!timetableIsAdmin()){ flashSaveToast(false, 'Not saved — admin only'); return; }
+    try{
+      const res = await Store.set('global-overrides', JSON.stringify(globalOverrides), true);
+      if(!res){ flashSaveToast(false, 'Save failed — storage unavailable'); }
+      else if(res.synced === false){ flashSaveToast(true, 'Saved locally — will sync when online'); }
+      else{ flashSaveToast(true, 'Timetable updated for everyone'); }
+    }catch(e){ console.warn('global override save failed', e); flashSaveToast(false); }
+  }
+
   function courseLabel(code){ return COURSE_NAMES[code] || courseNames[code] || code; }
   function tileCode(code){ return code.replace(/^CB|^HS/, ''); }
 
@@ -1390,15 +1467,35 @@
     if(ov && (!ov.removed || !ov.removed.length) && (!ov.extra || !ov.extra.length)) delete dayOverrides[iso];
   }
 
+  // ===== Global (admin) day overrides — apply to EVERYONE's timetable =====
+  function ensureGlobalOverride(iso){
+    if(!globalOverrides[iso]) globalOverrides[iso] = { removed:[], extra:[] };
+    if(!globalOverrides[iso].removed) globalOverrides[iso].removed = [];
+    if(!globalOverrides[iso].extra) globalOverrides[iso].extra = [];
+    return globalOverrides[iso];
+  }
+  function cleanupGlobalOverride(iso){
+    const ov = globalOverrides[iso];
+    if(ov && (!ov.removed || !ov.removed.length) && (!ov.extra || !ov.extra.length)) delete globalOverrides[iso];
+  }
+
   function scheduleForDate(date){
     const dow = date.getDay();
     const iso = isoDate(date);
     const base = scheduleForDay(dow);
+    const gov = globalOverrides[iso];
     const ov = dayOverrides[iso];
     let list = base;
+    if(gov && gov.removed && gov.removed.length){
+      const removedSet = new Set(gov.removed);
+      list = list.filter(s => !removedSet.has(sessionSig(s)));
+    }
     if(ov && ov.removed && ov.removed.length){
       const removedSet = new Set(ov.removed);
       list = list.filter(s => !removedSet.has(sessionSig(s)));
+    }
+    if(gov && gov.extra && gov.extra.length){
+      list = list.concat(gov.extra.map(e => Object.assign({}, e, { day: dow, isGlobalExtra: true })));
     }
     if(ov && ov.extra && ov.extra.length){
       list = list.concat(ov.extra.map(e => Object.assign({}, e, { day: dow, isExtra: true })));
@@ -1411,13 +1508,19 @@
     return list.slice().sort((a,b)=> a.start-b.start);
   }
 
+  // Returns base-schedule sessions removed for this date, tagged with who removed them
+  // (admin, for everyone — `_global:true` — and/or the current user personally — `_personal:true`).
   function removedBaseSessionsForDate(date){
     const dow = date.getDay();
     const iso = isoDate(date);
+    const gov = globalOverrides[iso];
     const ov = dayOverrides[iso];
-    if(!ov || !ov.removed || !ov.removed.length) return [];
-    const removedSet = new Set(ov.removed);
-    return scheduleForDay(dow).filter(s => removedSet.has(sessionSig(s)));
+    const gSet = new Set((gov && gov.removed) || []);
+    const pSet = new Set((ov && ov.removed) || []);
+    if(!gSet.size && !pSet.size) return [];
+    return scheduleForDay(dow)
+      .filter(s => gSet.has(sessionSig(s)) || pSet.has(sessionSig(s)))
+      .map(s => Object.assign({}, s, { _global: gSet.has(sessionSig(s)), _personal: pSet.has(sessionSig(s)) }));
   }
 
   function removeSessionForDateBySig(date, sig){
@@ -1445,6 +1548,38 @@
     ov.extra = (ov.extra||[]).filter(e=>e.id!==id);
     cleanupDayOverride(iso);
     persistDayOverrides();
+  }
+
+  // Admin-only: cancel/restore/add/delete classes on the SHARED timetable (affects every student).
+  function cancelSessionForEveryone(date, sig){
+    if(!timetableIsAdmin()) return;
+    const ov = ensureGlobalOverride(isoDate(date));
+    if(!ov.removed.includes(sig)) ov.removed.push(sig);
+    persistGlobalOverrides();
+  }
+  function restoreSessionForEveryone(date, sig){
+    if(!timetableIsAdmin()) return;
+    const iso = isoDate(date);
+    const ov = globalOverrides[iso];
+    if(!ov) return;
+    ov.removed = (ov.removed||[]).filter(x=>x!==sig);
+    cleanupGlobalOverride(iso);
+    persistGlobalOverrides();
+  }
+  function addExtraSessionForEveryone(date, session){
+    if(!timetableIsAdmin()) return;
+    const ov = ensureGlobalOverride(isoDate(date));
+    ov.extra.push(session);
+    persistGlobalOverrides();
+  }
+  function deleteExtraSessionForEveryone(date, id){
+    if(!timetableIsAdmin()) return;
+    const iso = isoDate(date);
+    const ov = globalOverrides[iso];
+    if(!ov) return;
+    ov.extra = (ov.extra||[]).filter(e=>e.id!==id);
+    cleanupGlobalOverride(iso);
+    persistGlobalOverrides();
   }
 
   function findNext(){
@@ -2290,17 +2425,20 @@
 
   function dayEditControlsHtml(d){
     const removedList = removedBaseSessionsForDate(d);
+    const isAdmin = timetableIsAdmin();
     return `
       ${removedList.length ? `
       <div class="removed-list">
         <div class="removed-title">Removed for this day</div>
         ${removedList.map(s=>`
           <div class="removed-item">
-            <span>${s.code} · ${fmtHM(s.start)}</span>
-            <button class="restore-btn" data-sig="${sessionSig(s)}">↺ restore</button>
+            <span>${s.code} · ${fmtHM(s.start)} ${s._global ? '<span class="cc-tag cancelled">cancelled for everyone</span>' : ''}</span>
+            ${s._personal ? `<button class="restore-btn" data-scope="personal" data-sig="${sessionSig(s)}">↺ restore</button>` : ''}
+            ${(isAdmin && s._global) ? `<button class="restore-btn admin-restore" data-scope="global" data-sig="${sessionSig(s)}">↺ restore for everyone</button>` : ''}
           </div>`).join("")}
       </div>` : ''}
       <button class="day-edit-btn" id="addExtraClassBtn">+ Add a class for this day</button>
+      ${isAdmin ? `<button class="day-edit-btn admin-btn" id="addGlobalClassBtn">+ Add a class for everyone (admin)</button>` : ''}
     `;
   }
 
@@ -2308,8 +2446,18 @@
     const wrap = document.getElementById('attendanceDayWrap');
     wrap.querySelectorAll('.day-edit-remove').forEach(btn=>{
       btn.addEventListener('click', ()=>{
+        const scope = btn.dataset.scope || 'personal';
         const isExtra = btn.dataset.extra === '1';
-        if(isExtra){
+        if(scope === 'global'){
+          if(!timetableIsAdmin()) return;
+          if(isExtra){
+            if(!confirm('Delete this class for everyone? This updates the shared timetable.')) return;
+            deleteExtraSessionForEveryone(d, btn.dataset.id);
+          } else {
+            if(!confirm("Cancel this class for everyone? All students will see it removed from today's timetable.")) return;
+            cancelSessionForEveryone(d, btn.dataset.sig);
+          }
+        } else if(isExtra){
           if(!confirm('Delete this class you added? This only affects your own timetable.')) return;
           deleteExtraSessionForDate(d, btn.dataset.id);
         } else {
@@ -2319,14 +2467,28 @@
         renderAll();
       });
     });
+    wrap.querySelectorAll('.admin-reschedule').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        openAddClassModal(d, {
+          global: true,
+          reschedule: {
+            sig: btn.dataset.sig, code: btn.dataset.code, room: btn.dataset.room,
+            type: btn.dataset.type, start: Number(btn.dataset.start), end: Number(btn.dataset.end)
+          }
+        });
+      });
+    });
     wrap.querySelectorAll('.restore-btn').forEach(btn=>{
       btn.addEventListener('click', ()=>{
-        restoreSessionForDate(d, btn.dataset.sig);
+        if(btn.dataset.scope === 'global') restoreSessionForEveryone(d, btn.dataset.sig);
+        else restoreSessionForDate(d, btn.dataset.sig);
         renderAll();
       });
     });
     const addBtn = document.getElementById('addExtraClassBtn');
-    if(addBtn) addBtn.addEventListener('click', ()=> openAddClassModal(d));
+    if(addBtn) addBtn.addEventListener('click', ()=> openAddClassModal(d, { global:false }));
+    const addGlobalBtn = document.getElementById('addGlobalClassBtn');
+    if(addGlobalBtn) addGlobalBtn.addEventListener('click', ()=> openAddClassModal(d, { global:true }));
   }
 
   function renderAttendanceDay(){
@@ -2348,18 +2510,30 @@
       const status = attendance[key];
       const locked = !canMarkFromAttendanceTab(d, s);
       const isExtra = !!s.isExtra;
-      const canRemoveBase = !isExtra && locked; 
-      const removeBtn = isExtra
-        ? `<button class="day-edit-remove" data-extra="1" data-id="${s.id||''}"> delete this class</button>`
-        : (canRemoveBase ? `<button class="day-edit-remove" data-extra="0" data-sig="${sessionSig(s)}"> remove for this day only</button>` : '');
+      const isGlobalExtra = !!s.isGlobalExtra;
+      const isAdmin = timetableIsAdmin();
+      const canRemoveBase = !isExtra && !isGlobalExtra && locked;
+      let removeBtn = '';
+      if(isExtra){
+        removeBtn = `<button class="day-edit-remove" data-scope="personal" data-extra="1" data-id="${s.id||''}"> delete this class</button>`;
+      } else if(isGlobalExtra){
+        removeBtn = isAdmin ? `<button class="day-edit-remove admin-remove" data-scope="global" data-extra="1" data-id="${s.id||''}"> delete for everyone</button>` : '';
+      } else if(canRemoveBase){
+        removeBtn = `<button class="day-edit-remove" data-scope="personal" data-extra="0" data-sig="${sessionSig(s)}"> remove for this day only</button>`;
+      }
+      const adminBtns = (isAdmin && canRemoveBase) ? `
+          <button class="day-edit-remove admin-remove" data-scope="global" data-extra="0" data-sig="${sessionSig(s)}"> cancel for everyone</button>
+          <button class="day-edit-remove admin-reschedule" data-sig="${sessionSig(s)}" data-code="${escapeHtml(s.code)}" data-room="${escapeHtml(s.room)}" data-type="${s.type}" data-start="${s.start}" data-end="${s.end}"> reschedule for everyone</button>
+        ` : '';
       return `
       <div class="class-card">
         <div class="tile ${s.type}"><div class="num">${fmtHM(s.start).split(' ')[0]}</div><div class="code">${tileCode(s.code)}</div></div>
         <div class="cc-body">
-          <div class="cc-top"><span class="cc-code">${s.code}</span>${nameSpan(s,'cc-name')}<span class="cc-tag ${s.type}">${s.tag || s.type}</span>${isExtra ? '<span class="cc-tag added">added</span>' : ''}</div>
+          <div class="cc-top"><span class="cc-code">${s.code}</span>${nameSpan(s,'cc-name')}<span class="cc-tag ${s.type}">${s.tag || s.type}</span>${isExtra ? '<span class="cc-tag added">added</span>' : ''}${isGlobalExtra ? '<span class="cc-tag admin-added">added by admin</span>' : ''}</div>
           <div class="cc-meta">${fmtHM(s.start)}–${fmtHM(s.end)} · ${s.room}</div>
           ${locked ? `<div class="cc-status">not started yet</div>` : (!status ? `<div class="cc-status auto-absent">counted as absent — tap ✓ if you were there</div>` : '')}
           ${removeBtn}
+          ${adminBtns}
         </div>
         <div class="mark-group">
           <button class="mark-btn p ${status==='p'?'active':''}" ${locked?'disabled':''} data-key="${key}" data-val="p" title="Present">✓</button>
@@ -2441,6 +2615,14 @@
     await fetchAnnouncements();
     renderAnnounceBell();
     if(announceOverlay && announceOverlay.style.display === 'flex') renderAnnouncePanel();
+    try{
+      const g = await Store.get('global-overrides', true);
+      const next = (g && g.value) ? JSON.parse(g.value) : {};
+      if(JSON.stringify(next) !== JSON.stringify(globalOverrides)){
+        globalOverrides = next;
+        renderAll();
+      }
+    }catch(e){ /* keep last known overrides — fine */ }
   }, 45000);
 
   tryAutoLogin();

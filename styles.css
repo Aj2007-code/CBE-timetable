@@ -715,11 +715,22 @@
 
   .removed-list{margin-top:14px; border:1px solid var(--border-soft); border-radius:12px; padding:10px 12px; background:var(--surface);}
   .removed-title{font-family:var(--mono); font-size:10px; letter-spacing:1px; text-transform:uppercase; color:var(--text-faint); margin-bottom:8px;}
-  .removed-item{display:flex; align-items:center; justify-content:space-between; gap:8px; font-family:var(--mono); font-size:11.5px; color:var(--text-dim); padding:4px 0;}
+  .removed-item{display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:6px 8px; font-family:var(--mono); font-size:11.5px; color:var(--text-dim); padding:4px 0;}
   .restore-btn{border:1px solid var(--border); background:var(--surface-2); color:var(--teal); font-family:var(--mono); font-size:10.5px; padding:4px 9px; border-radius:8px; cursor:pointer;}
   .restore-btn:hover{border-color:var(--teal);}
 
   .cc-tag.added{background:var(--green-dim); color:var(--green);}
+  .cc-tag.admin-added{background:var(--blue-dim); color:var(--blue);}
+  .cc-tag.cancelled{background:var(--rose-dim); color:var(--rose); margin-left:6px;}
+
+  .day-edit-btn.admin-btn{border-color:var(--rose); color:var(--rose); border-style:solid;}
+  .day-edit-btn.admin-btn:hover{background:var(--rose-dim);}
+  .day-edit-remove.admin-remove{color:var(--rose); display:inline-block; margin-right:14px;}
+  .day-edit-remove.admin-remove:hover{color:var(--rose); text-decoration:underline;}
+  .day-edit-remove.admin-reschedule{color:var(--blue); display:inline-block;}
+  .day-edit-remove.admin-reschedule:hover{color:var(--blue); text-decoration:underline;}
+  .restore-btn.admin-restore{border-color:var(--rose); color:var(--rose); margin-left:6px;}
+  .restore-btn.admin-restore:hover{border-color:var(--rose);}
   .tile.extra{background:linear-gradient(150deg, var(--green-dim), #0f2a1c);}
   .hero-tile.extra{background:linear-gradient(150deg, var(--green-dim), #0f2a1c);}
   .hero-tile.extra .kind{color:var(--green);}
