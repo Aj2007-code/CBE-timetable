@@ -496,6 +496,7 @@
   .week-item .nm-wrap{display:flex; align-items:baseline; gap:6px; flex-wrap:wrap; min-width:0;}
   .week-item .nm-code{font-family:var(--mono); font-size:11px; color:var(--text-faint); font-weight:700; flex-shrink:0;}
   .week-item .nm{font-weight:600; word-break:break-word;}
+  .week-item .nm-dur{color:var(--text-faint); font-size:10.5px; font-family:var(--mono); font-weight:500; flex-shrink:0;}
   .week-item .rm{color:var(--text-faint); font-size:11.5px; font-family:var(--mono); text-align:right; white-space:nowrap; padding-top:2px;}
 
   .stat-grid{display:grid; grid-template-columns:repeat(auto-fit, minmax(140px,1fr)); gap:10px; margin-bottom:20px;}

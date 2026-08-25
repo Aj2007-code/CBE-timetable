@@ -1441,6 +1441,19 @@
     let h12 = h%12; if(h12===0) h12=12;
     return h12+":"+pad(m)+" "+ap;
   }
+  // Rounds a session's raw duration so a near-hour slot (e.g. 55 min) reads as a clean hour.
+  function roundedSessionMinutes(s){
+    const mins = Math.max(0, (s.end||0) - (s.start||0));
+    const hours = Math.floor(mins/60);
+    const rem = mins % 60;
+    return rem >= 55 ? (hours+1)*60 : hours*60 + rem;
+  }
+  function fmtDuration(mins){
+    const h = Math.floor(mins/60), m = mins % 60;
+    if(h>0 && m>0) return `${h}h ${m}m`;
+    if(h>0) return `${h} hr${h>1?'s':''}`;
+    return `${m} min`;
+  }
   function fmtDayLabel(d){
     const today = new Date();
     const sameDay = isoDate(d)===isoDate(today);
@@ -1778,15 +1791,16 @@
     for(let d=1; d<=5; d++){
       const dateForDay = d===now.getDay() ? now : dateForWeekday(d);
       const list = scheduleForDate(dateForDay);
+      const totalMins = list.reduce((sum,s)=> sum + roundedSessionMinutes(s), 0);
       html += `<div class="week-day">
-        <div class="week-day-head"><h3>${DAY_NAMES[d]}</h3><span class="count">${list.length} session${list.length!==1?'s':''}</span></div>
+        <div class="week-day-head"><h3>${DAY_NAMES[d]}</h3><span class="count">${list.length} session${list.length!==1?'s':''}${list.length ? ' · '+fmtDuration(totalMins) : ''}</span></div>
         <div class="week-list">
           ${list.length ? list.map(s=>`
             <div class="week-item">
               <span class="t">${fmtHM(s.start)}</span>
               <span class="mid">
                 <span class="dot ${s.type}"></span>
-                <span class="nm-wrap"><span class="nm-code">${s.code}</span>${nameSpan(s,'nm')}</span>
+                <span class="nm-wrap"><span class="nm-code">${s.code}</span>${nameSpan(s,'nm')}<span class="nm-dur">${fmtDuration(roundedSessionMinutes(s))}</span></span>
               </span>
               <span class="rm">${s.room}${s.isExtra ? ' · added' : ''}</span>
             </div>`).join("") : `<div style="color:var(--text-faint); font-size:12.5px;">— no sessions —</div>`}
@@ -2494,10 +2508,12 @@
   function renderAttendanceDay(){
     const d = attSelectedDate;
     const { main, rel } = fmtDayLabel(d);
-    document.getElementById('dateLabel').innerHTML = `${main}<span class="rel">${rel}</span>`;
     const wrap = document.getElementById('attendanceDayWrap');
     const list = scheduleForDate(d);
     const editControls = dayEditControlsHtml(d);
+    const dayTotalMins = list.reduce((sum,s)=> sum + roundedSessionMinutes(s), 0);
+    const relExtra = list.length ? ` · ${list.length} session${list.length!==1?'s':''} · ${fmtDuration(dayTotalMins)}` : '';
+    document.getElementById('dateLabel').innerHTML = `${main}<span class="rel">${rel}${relExtra}</span>`;
 
     if(list.length===0){
       wrap.innerHTML = `<div class="empty-state" style="padding:24px;">No sessions on this date.</div>` + editControls;
