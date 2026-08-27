@@ -585,7 +585,12 @@
       el.addEventListener('click', ()=>{
         rollInput.value = el.dataset.roll;
         rollSuggest.classList.remove('show');
-        rollInput.focus();
+        syncAdminPassVisibility();
+        if(adminPassField && adminPassField.style.display === 'block'){
+          adminPassInput.focus();
+        } else {
+          rollInput.focus();
+        }
       });
     });
   }
@@ -623,6 +628,14 @@
       return;
     }
     if(roll === ADMIN_LOGIN_ROLL){
+      syncAdminPassVisibility();
+      if(adminPassField && adminPassField.style.display !== 'block'){
+        // Password field wasn't visible yet (e.g. roll was filled via
+        // autofill or the suggestion list) — show it and stop here instead
+        // of silently failing with an empty password.
+        if(adminPassInput) adminPassInput.focus();
+        return;
+      }
       const pw = adminPassInput ? adminPassInput.value : '';
       loginBtn.disabled = true;
       const prevLabel = loginBtn.textContent;
