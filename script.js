@@ -321,6 +321,22 @@
   const SUPABASE_URL = "https://ektzrezmwzhautdmbrwf.supabase.co";       
   const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVrdHpyZXptd3poYXV0ZG1icndmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ4OTY1MzksImV4cCI6MjEwMDQ3MjUzOX0.IoVDIWNNqMzFFZUk_C2LV8Wm-cxBs3OM6Cp5bP2GTr4";  
 
+  // ===== Admin login gate =====
+  // Logging in as this roll number additionally requires the admin password below.
+  // The password itself is never stored in plaintext here — only its SHA-256 hash,
+  // computed with the browser's built-in crypto API and compared on attempt.
+  const ADMIN_LOGIN_ROLL = "2501CB23";
+  const ADMIN_LOGIN_PASS_HASH = "a87e1fced653a089804187ba48a21d273e18c5fb4be079e6e246aa4784089245";
+  async function sha256Hex(str){
+    const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+    return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
+  }
+  async function verifyAdminPassword(pw){
+    if(!pw) return false;
+    const hash = await sha256Hex(pw);
+    return hash === ADMIN_LOGIN_PASS_HASH;
+  }
+
   const PYQ_BUCKET = "pyq";
   const PYQ_ADMIN_ROLL = "2501CB23";
   function pyqPublicUrl(storagePath){
@@ -533,6 +549,14 @@
   const loginError = document.getElementById('loginError');
   const loginBtn = document.getElementById('loginBtn');
   const rememberMe = document.getElementById('rememberMe');
+  const adminPassField = document.getElementById('adminPassField');
+  const adminPassInput = document.getElementById('adminPassInput');
+
+  function syncAdminPassVisibility(){
+    const roll = rollInput.value.trim().toUpperCase();
+    if(adminPassField) adminPassField.style.display = (roll === ADMIN_LOGIN_ROLL) ? 'block' : 'none';
+    if(roll !== ADMIN_LOGIN_ROLL && adminPassInput) adminPassInput.value = '';
+  }
 
   function showSuggestions(q){
     q = q.trim().toUpperCase();
@@ -553,10 +577,17 @@
   rollInput.addEventListener('input', ()=>{
     loginError.classList.remove('show');
     showSuggestions(rollInput.value);
+    syncAdminPassVisibility();
   });
   rollInput.addEventListener('keydown', (e)=>{
-    if(e.key === 'Enter'){ e.preventDefault(); attemptLogin(); }
+    if(e.key === 'Enter'){ e.preventDefault(); if(adminPassField && adminPassField.style.display === 'block'){ adminPassInput.focus(); } else { attemptLogin(); } }
   });
+  if(adminPassInput){
+    adminPassInput.addEventListener('input', ()=> loginError.classList.remove('show'));
+    adminPassInput.addEventListener('keydown', (e)=>{
+      if(e.key === 'Enter'){ e.preventDefault(); attemptLogin(); }
+    });
+  }
   document.addEventListener('click', (e)=>{
     if(!e.target.closest('.login-field')) rollSuggest.classList.remove('show');
   });
@@ -575,12 +606,25 @@
       loginError.classList.add('show');
       return;
     }
+    if(roll === ADMIN_LOGIN_ROLL){
+      const pw = adminPassInput ? adminPassInput.value : '';
+      const ok = await verifyAdminPassword(pw);
+      if(!ok){
+        loginError.textContent = "Incorrect admin password.";
+        loginError.classList.add('show');
+        if(adminPassInput){ adminPassInput.value = ''; adminPassInput.focus(); }
+        return;
+      }
+    }
     currentUser = { roll, name };
-    if(rememberMe.checked){
+    // Never remember the admin roll across sessions — the password must be
+    // re-entered every time, even with "remember me" checked.
+    if(rememberMe.checked && roll !== ADMIN_LOGIN_ROLL){
       await Store.set('remembered-roll', roll, false);
     } else {
       await Store.delete('remembered-roll', false);
     }
+    if(adminPassInput) adminPassInput.value = '';
     await enterApp();
   }
 
@@ -610,6 +654,14 @@
   async function tryAutoLogin(){
     try{
       const r = await Store.get('remembered-roll', false);
+      if(r && r.value && r.value.toUpperCase() === ADMIN_LOGIN_ROLL){
+        // Old/previously-remembered admin session — never auto-login the admin
+        // roll. Clear it and require the password on the login screen instead.
+        await Store.delete('remembered-roll', false);
+        rollInput.value = ADMIN_LOGIN_ROLL;
+        syncAdminPassVisibility();
+        return;
+      }
       if(r && r.value && STUDENT_MAP[r.value.toUpperCase()] && !isBlockedRoll(r.value)){
         currentUser = { roll: r.value.toUpperCase(), name: STUDENT_MAP[r.value.toUpperCase()] };
         await enterApp();
