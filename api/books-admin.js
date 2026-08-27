@@ -1,7 +1,7 @@
 const SUPABASE_URL = "https://ektzrezmwzhautdmbrwf.supabase.co";
 const BUCKET = "books";
 const MAX_BYTES = 50 * 1024 * 1024; // keep in sync with Supabase's plan-level cap — see notes below
-const ADMIN_ROLL = "2501CB23";
+const { requireAdmin, ADMIN_ROLL } = require("./_adminAuth");
 
 function serviceHeaders(extra) {
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -28,6 +28,13 @@ module.exports = async (req, res) => {
 
   if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
     res.status(500).json({ error: "Server not configured — missing SUPABASE_SERVICE_ROLE_KEY" });
+    return;
+  }
+
+  // Real gate: a valid signed admin session token from /api/admin-login.
+  // A request can no longer get in here just by claiming `roll: "2501CB23"`.
+  if (!requireAdmin(req)) {
+    res.status(401).json({ error: "Admin session required — please log in again" });
     return;
   }
 

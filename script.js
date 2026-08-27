@@ -322,19 +322,35 @@
   const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVrdHpyZXptd3poYXV0ZG1icndmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ4OTY1MzksImV4cCI6MjEwMDQ3MjUzOX0.IoVDIWNNqMzFFZUk_C2LV8Wm-cxBs3OM6Cp5bP2GTr4";  
 
   // ===== Admin login gate =====
-  // Logging in as this roll number additionally requires the admin password below.
-  // The password itself is never stored in plaintext here — only its SHA-256 hash,
-  // computed with the browser's built-in crypto API and compared on attempt.
+  // The password check now happens server-side in /api/admin-login.js — the
+  // password itself lives only in a Vercel environment variable, never in
+  // this file. A successful check returns a short-lived signed token, which
+  // is what actually proves admin status to the server (see ADMIN_TOKEN below
+  // and requireAdmin() in api/_adminAuth.js).
   const ADMIN_LOGIN_ROLL = "2501CB23";
-  const ADMIN_LOGIN_PASS_HASH = "a87e1fced653a089804187ba48a21d273e18c5fb4be079e6e246aa4784089245";
-  async function sha256Hex(str){
-    const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
-    return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
-  }
+  let ADMIN_TOKEN = null; // { token, expiresAt } — kept in memory only, never persisted
   async function verifyAdminPassword(pw){
     if(!pw) return false;
-    const hash = await sha256Hex(pw);
-    return hash === ADMIN_LOGIN_PASS_HASH;
+    try{
+      const res = await fetch('/api/admin-login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ roll: ADMIN_LOGIN_ROLL, password: pw })
+      });
+      const data = await res.json().catch(()=>({}));
+      if(!res.ok || !data.ok || !data.token) return false;
+      ADMIN_TOKEN = { token: data.token, expiresAt: data.expiresAt };
+      return true;
+    }catch(e){
+      return false;
+    }
+  }
+  function adminTokenValid(){
+    return !!(ADMIN_TOKEN && ADMIN_TOKEN.expiresAt && Date.now() < ADMIN_TOKEN.expiresAt);
+  }
+  // Attach this to any fetch() that hits an admin-only /api endpoint.
+  function adminAuthHeader(){
+    return adminTokenValid() ? { 'x-admin-token': ADMIN_TOKEN.token } : {};
   }
 
   const PYQ_BUCKET = "pyq";
@@ -343,7 +359,7 @@
     return `${SUPABASE_URL}/storage/v1/object/public/${PYQ_BUCKET}/${storagePath}`;
   }
   function pyqIsAdmin(){
-    return !!(currentUser && currentUser.roll === PYQ_ADMIN_ROLL);
+    return !!(currentUser && currentUser.roll === PYQ_ADMIN_ROLL && adminTokenValid());
   }
 
   const BOOKS_BUCKET = "books";
@@ -352,20 +368,20 @@
     return `${SUPABASE_URL}/storage/v1/object/public/${BOOKS_BUCKET}/${storagePath}`;
   }
   function booksIsAdmin(){
-    return !!(currentUser && currentUser.roll === BOOKS_ADMIN_ROLL);
+    return !!(currentUser && currentUser.roll === BOOKS_ADMIN_ROLL && adminTokenValid());
   }
 
   // ===== Timetable admin (reschedule / cancel classes for everyone) =====
   const TIMETABLE_ADMIN_ROLL = "2501CB23";
   function timetableIsAdmin(){
-    return !!(currentUser && currentUser.roll === TIMETABLE_ADMIN_ROLL);
+    return !!(currentUser && currentUser.roll === TIMETABLE_ADMIN_ROLL && adminTokenValid());
   }
 
   // ===== Announcements =====
   const ANNOUNCE_ADMIN_ROLL = "2501CB23";
   const ANNOUNCE_TTL_HOURS = 6;
   function announceIsAdmin(){
-    return !!(currentUser && currentUser.roll === ANNOUNCE_ADMIN_ROLL);
+    return !!(currentUser && currentUser.roll === ANNOUNCE_ADMIN_ROLL && adminTokenValid());
   }
   function announceHeaders(){
     return { apikey: SUPABASE_ANON_KEY, Authorization: 'Bearer ' + SUPABASE_ANON_KEY, 'Content-Type': 'application/json' };
@@ -608,7 +624,16 @@
     }
     if(roll === ADMIN_LOGIN_ROLL){
       const pw = adminPassInput ? adminPassInput.value : '';
-      const ok = await verifyAdminPassword(pw);
+      loginBtn.disabled = true;
+      const prevLabel = loginBtn.textContent;
+      loginBtn.textContent = 'Checking…';
+      let ok = false;
+      try{
+        ok = await verifyAdminPassword(pw);
+      } finally {
+        loginBtn.disabled = false;
+        loginBtn.textContent = prevLabel;
+      }
       if(!ok){
         loginError.textContent = "Incorrect admin password.";
         loginError.classList.add('show');
@@ -633,6 +658,7 @@
   document.getElementById('logoutBtn').addEventListener('click', async ()=>{
     SessionTracker.end();
     currentUser = null;
+    ADMIN_TOKEN = null;
     attendance = {};
     await Store.delete('remembered-roll', false);
     appScreen.style.display = 'none';
@@ -2137,7 +2163,7 @@
       const fileBase64 = await fileToBase64(file);
       const res = await fetch('/api/pyq-admin', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: Object.assign({ 'Content-Type': 'application/json' }, adminAuthHeader()),
         body: JSON.stringify({ roll: currentUser.roll, action:'upload', courseCode, fileName: file.name, fileBase64 })
       });
       const data = await res.json().catch(()=>({}));
@@ -2162,7 +2188,7 @@
     try{
       const res = await fetch('/api/pyq-admin', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: Object.assign({ 'Content-Type': 'application/json' }, adminAuthHeader()),
         body: JSON.stringify({ roll: currentUser.roll, action:'delete', id, storagePath })
       });
       const data = await res.json().catch(()=>({}));
@@ -2308,7 +2334,7 @@
       // Step 1: ask our function for a signed upload URL (tiny request).
       const signRes = await fetch('/api/books-admin', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: Object.assign({ 'Content-Type': 'application/json' }, adminAuthHeader()),
         body: JSON.stringify({ roll: currentUser.roll, action:'get-upload-url', courseCode, fileName: file.name, fileSize: file.size })
       });
       const signData = await signRes.json().catch(()=>({}));
@@ -2361,7 +2387,7 @@
     try{
       const res = await fetch('/api/books-admin', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: Object.assign({ 'Content-Type': 'application/json' }, adminAuthHeader()),
         body: JSON.stringify({ roll: currentUser.roll, action:'delete', id, storagePath })
       });
       const data = await res.json().catch(()=>({}));
@@ -2476,7 +2502,7 @@
     try{
       await fetch(SPI_SHEET_URL, {
         method: 'POST', mode: 'no-cors',
-        headers: { 'Content-Type': 'application/json' },
+        headers: Object.assign({ 'Content-Type': 'application/json' }, adminAuthHeader()),
         body: JSON.stringify({ roll: currentUser.roll, name: currentUser.name, spi: spi.toFixed(2), grades, submittedAt: new Date().toISOString() })
       });
       msg.textContent = '✓ Result saved'; msg.className = 'spi-save-msg ok';
