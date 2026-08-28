@@ -1905,7 +1905,8 @@
 
   function computeStats(){
     const stats = {};
-    statGroupsForActiveCourses().forEach(g=> stats[g.key] = {present:0, total:0});
+    const activeKeys = new Set(statGroupsForActiveCourses().map(g=> g.key));
+    activeKeys.forEach(k=> stats[k] = {present:0, total:0});
     let totalPresent=0, totalMarked=0;
 
     const start = startOfDay(SEMESTER_START);
@@ -1919,7 +1920,13 @@
           const val = attendance[key] || 'a'; 
           if(val==='c') return;
           const statKey = statKeyForSession(s.code, s.type);
-          if(!stats[statKey]) stats[statKey]={present:0,total:0};
+          // Only fold this session into the overall total/present count if it
+          // belongs to one of the course cards actually shown below — a
+          // session under a course that isn't currently active (e.g. a
+          // dropped/switched elective) would otherwise inflate "sessions
+          // held" without ever appearing on any card, making the header
+          // number impossible to reconcile against the cards.
+          if(!activeKeys.has(statKey)) return;
           stats[statKey].total++;
           totalMarked++;
           if(val==='p'){ stats[statKey].present++; totalPresent++; }
