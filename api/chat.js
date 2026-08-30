@@ -37,8 +37,10 @@ const SCHEDULE = [
   { day: 4, start: tm(15, 0), end: tm(15, 55), code: "CB2103", type: "lecture", room: "R102" },
   { day: 4, start: tm(16, 0), end: tm(18, 0), code: "CB2104", type: "lecture", room: "LT001" },
   { day: 5, start: tm(9, 0), end: tm(9, 55), code: "CB2105", type: "lecture", room: "R110" },
-  { day: 5, start: tm(10, 0), end: tm(11, 55), code: "CB2102", type: "lab", room: "Lab" },
   { day: 5, start: tm(15, 0), end: tm(15, 55), code: "CB2102", type: "lecture", room: "R102" },
+  // NOTE: CB2102's lab is intentionally NOT a fixed weekly slot here — it's a
+  // 16-group, alternating-week rotation with a one-off exception, injected
+  // per-student by fluidLabSessionForDate() below (mirrors script.js exactly).
 ].sort((a, b) => a.day - b.day || a.start - b.start);
 
 const COURSE_CODES = [...new Set(SCHEDULE.map(s => s.code))].sort();
@@ -55,7 +57,88 @@ const DEFAULT_COURSE_NAMES = {
   HS2112: "Introduction to Demography",
 };
 
+// L-T-P-C credit structure per course — mirrors script.js's COURSE_CREDITS
+// (used there for the SPI calculator). l=lecture, t=tutorial, p=practical
+// hours/week, c=credit points.
+const COURSE_CREDITS = {
+  CB2101: { l: 2, t: 0, p: 0, c: 2 },
+  CB2102: { l: 3, t: 1, p: 2, c: 5 },
+  CB2103: { l: 3, t: 0, p: 3, c: 4.5 },
+  CB2104: { l: 3, t: 1, p: 0, c: 4 },
+  CB2105: { l: 3, t: 0, p: 0, c: 3 },
+  HS2101: { l: 3, t: 1, p: 0, c: 4 },
+  HS2110: { l: 3, t: 0, p: 0, c: 3 },
+  HS2111: { l: 3, t: 0, p: 0, c: 3 },
+  HS2112: { l: 3, t: 0, p: 0, c: 3 },
+};
+
 const LAB_SPLIT_COURSES = new Set(["CB2102", "CB2103"]);
+
+// ---- CB2102 Fluid Mechanics Lab: 16 groups, alternating weeks ----
+// Mirrors script.js exactly — do not let this drift. Groups 1-8 ("set A")
+// and Groups 9-16 ("set B") take the lab on alternating weeks, with one
+// known one-off exception. Roster sourced from CB2102_LAB_Group_list.pdf.
+const FLUID_LAB_GROUPS = {
+  1: ["2501CB01", "2501CB02", "2501CB03", "2501CB04", "2501CB05", "2501CT07", "2501CT26"],
+  2: ["2501CB06", "2501CB07", "2501CB08", "2501CB09", "2501CB10", "2501CT19", "2501CT23"],
+  3: ["2501CB11", "2501CB12", "2501CB13", "2501CB14", "2501CB15", "2501CT22", "2501CT38"],
+  4: ["2501CB16", "2501CB17", "2501CB18", "2501CB19", "2501CT08", "2501CT16", "2501CT31"],
+  5: ["2501CB20", "2501CB21", "2501CB22", "2501CB23", "2501CT20", "2501CT30", "2503CT01"],
+  6: ["2501CB24", "2501CB25", "2501CB26", "2501CB27", "2501CB28", "2501CT10", "2501CT37"],
+  7: ["2501CB29", "2501CB30", "2501CB31", "2501CT03", "2501CT05", "2501CT36"],
+  8: ["2501CB32", "2501CB33", "2501CB34", "2501CB35", "2501CT01", "2503CT03"],
+  9: ["2501CB36", "2501CB37", "2501CB38", "2501CB39", "2501CB40", "2501CT17", "2501CT28"],
+  10: ["2501CB41", "2501CB42", "2501CB43", "2501CB44", "2501CB45", "2501CT25", "2501CT34"],
+  11: ["2501CB46", "2501CB47", "2501CB48", "2501CB49", "2501CB50", "2501CT11", "2501CT35"],
+  12: ["2501CB51", "2501CB52", "2501CB53", "2501CB54", "2501CB55", "2501CT09", "2501CT27"],
+  13: ["2501CB56", "2501CB58", "2501CB60", "2501CT02", "2501CT06", "2501CT13", "2501CT29"],
+  14: ["2501CB61", "2501CB62", "2501CB63", "2501CB64", "2501CT12", "2501CT18", "2501CT32"],
+  15: ["2501CB65", "2501CT14", "2501CT15", "2503CB01", "2503CB02", "2503CT02"],
+  16: ["2501CT04", "2501CT21", "2501CT24", "2501CT33", "2503CB03", "2503CB04"],
+};
+const FLUID_LAB_GROUP_OF = {};
+Object.keys(FLUID_LAB_GROUPS).forEach(g => {
+  FLUID_LAB_GROUPS[g].forEach(roll => { FLUID_LAB_GROUP_OF[roll] = Number(g); });
+});
+function fluidLabGroupOf(roll) {
+  return FLUID_LAB_GROUP_OF[String(roll || "").toUpperCase()] || null;
+}
+function fluidLabSetOf(groupNum) {
+  if (!groupNum) return null;
+  return groupNum <= 8 ? "A" : "B";
+}
+function fluidLabMondayOf(date) {
+  const d = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const dow = d.getDay();
+  const diffToMon = (dow === 0 ? -6 : 1) - dow;
+  d.setDate(d.getDate() + diffToMon);
+  return d;
+}
+const FLUID_LAB_ANCHOR_MONDAY = fluidLabMondayOf(new Date(2026, 7, 24));
+const FLUID_LAB_EXCEPTION_ISO = "2026-08-24";
+function fluidLabActiveSetForWeek(date) {
+  const wkMon = fluidLabMondayOf(date);
+  const diffWeeks = Math.round((wkMon - FLUID_LAB_ANCHOR_MONDAY) / (7 * 24 * 60 * 60 * 1000));
+  const parity = ((diffWeeks % 2) + 2) % 2;
+  return parity === 0 ? "A" : "B";
+}
+// Returns a CB2102 lab session object for this date/group, or null.
+function fluidLabSessionForDate(date, groupNum) {
+  if (!groupNum) return null;
+  const iso = isoDate(date);
+  const mySet = fluidLabSetOf(groupNum);
+  const isExceptionWeek = isoDate(fluidLabMondayOf(date)) === isoDate(FLUID_LAB_ANCHOR_MONDAY);
+
+  if (iso === FLUID_LAB_EXCEPTION_ISO && mySet === "A") {
+    return { day: 1, start: tm(11, 0), end: tm(13, 0), code: "CB2102", type: "lab", room: "Lab", note: "Shifted from Friday — this week only" };
+  }
+  if (isExceptionWeek) return null;
+
+  if (date.getDay() === 5 && fluidLabActiveSetForWeek(date) === mySet) {
+    return { day: 5, start: tm(10, 0), end: tm(11, 55), code: "CB2102", type: "lab", room: "Lab" };
+  }
+  return null;
+}
 
 const HSS_START = tm(14, 0), HSS_END = tm(15, 0);
 const HSS_ELECTIVES = [
@@ -116,17 +199,30 @@ function buildPersonalWeekSchedule(hssCode, roll) {
 
 function sessionSig(s) { return s.code + "|" + s.start + "|" + s.room; }
 
-function scheduleForDate(weekSchedule, overrides, date) {
+function scheduleForDate(weekSchedule, globalOverrides, dayOverrides, date, roll) {
   const dow = date.getDay();
   const iso = isoDate(date);
   let list = weekSchedule.filter(s => s.day === dow);
-  const ov = overrides[iso];
+  const gov = globalOverrides[iso];
+  const ov = dayOverrides[iso];
+  if (gov && gov.removed && gov.removed.length) {
+    const removedSet = new Set(gov.removed);
+    list = list.filter(s => !removedSet.has(sessionSig(s)));
+  }
   if (ov && ov.removed && ov.removed.length) {
     const removedSet = new Set(ov.removed);
     list = list.filter(s => !removedSet.has(sessionSig(s)));
   }
+  if (gov && gov.extra && gov.extra.length) {
+    list = list.concat(gov.extra.map(e => Object.assign({}, e, { day: dow, isGlobalExtra: true })));
+  }
   if (ov && ov.extra && ov.extra.length) {
     list = list.concat(ov.extra.map(e => Object.assign({}, e, { day: dow, isExtra: true })));
+  }
+  if (roll) {
+    const grp = fluidLabGroupOf(roll);
+    const labSession = fluidLabSessionForDate(date, grp);
+    if (labSession) list = list.concat([labSession]);
   }
   return list.slice().sort((a, b) => a.start - b.start);
 }
@@ -163,9 +259,10 @@ function statGroupsForActiveCourses(hssCode, roll) {
   return groups;
 }
 
-function computeStats(weekSchedule, overrides, attendanceMarks, hssCode, roll, now) {
+function computeStats(weekSchedule, globalOverrides, dayOverrides, attendanceMarks, hssCode, roll, now) {
   const stats = {};
-  statGroupsForActiveCourses(hssCode, roll).forEach(g => stats[g.key] = { present: 0, total: 0 });
+  const activeKeys = new Set(statGroupsForActiveCourses(hssCode, roll).map(g => g.key));
+  activeKeys.forEach(k => stats[k] = { present: 0, total: 0 });
   let totalPresent = 0, totalMarked = 0;
 
   const start = startOfDay(SEMESTER_START);
@@ -173,13 +270,16 @@ function computeStats(weekSchedule, overrides, attendanceMarks, hssCode, roll, n
   if (start.getTime() <= end.getTime()) {
     for (let d = new Date(start); d.getTime() <= end.getTime(); d = addDays(d, 1)) {
       const iso = isoDate(d);
-      scheduleForDate(weekSchedule, overrides, d).forEach(s => {
+      scheduleForDate(weekSchedule, globalOverrides, dayOverrides, d, roll).forEach(s => {
         if (!sessionHasStarted(d, s, now)) return;
         const key = markKeyFor(iso, s);
         const val = attendanceMarks[key] || 'a';
         if (val === 'c') return;
         const statKey = statKeyForSession(s.code, s.type);
-        if (!stats[statKey]) stats[statKey] = { present: 0, total: 0 };
+        // Same fix as script.js: ignore sessions that don't belong to a
+        // currently-active course (e.g. a since-switched HSS elective) so
+        // this total always matches what's shown on the attendance cards.
+        if (!activeKeys.has(statKey)) return;
         stats[statKey].total++;
         totalMarked++;
         if (val === 'p') { stats[statKey].present++; totalPresent++; }
@@ -221,27 +321,29 @@ async function fetchSiteContext(rollNumber) {
   const now = getISTNow();
   const cutoffISO = new Date(now.getTime() - ANNOUNCE_TTL_HOURS * 3600 * 1000).toISOString();
 
-  const [hssRow, attRow, ovRow, namesRow, announceRows, pyqCount, bookCount] = await Promise.all([
+  const [hssRow, attRow, ovRow, govRow, namesRow, announceRows, pyqFiles, bookFiles] = await Promise.all([
     roll && supabase ? safeSingle(supabase.from('cbe_hss').select('code').eq('roll', roll).maybeSingle()) : null,
     roll && supabase ? safeSingle(supabase.from('cbe_attendance').select('attendance').eq('roll', roll).maybeSingle()) : null,
     roll && supabase ? safeSingle(supabase.from('cbe_day_overrides').select('overrides').eq('roll', roll).maybeSingle()) : null,
+    supabase ? safeSingle(supabase.from('cbe_global_overrides').select('overrides').eq('id', 1).maybeSingle()) : null,
     supabase ? safeSingle(supabase.from('cbe_course_names').select('names').eq('id', 1).maybeSingle()) : null,
     supabase ? safeSingle(supabase.from('cbe_announcements').select('id,message,created_at').gte('created_at', cutoffISO).order('created_at', { ascending: false }).limit(5)) : null,
-    supabase ? safeSingle(supabase.from('cbe_pyq_files').select('id', { count: 'exact', head: true })) : null,
-    supabase ? safeSingle(supabase.from('cbe_reference_books').select('id', { count: 'exact', head: true })) : null,
+    supabase ? safeSingle(supabase.from('cbe_pyq_files').select('course_code, file_name').order('course_code').limit(300)) : null,
+    supabase ? safeSingle(supabase.from('cbe_reference_books').select('course_code, title, author, file_name').order('course_code').limit(300)) : null,
   ]);
 
   const courseNames = Object.assign({}, DEFAULT_COURSE_NAMES, (namesRow && namesRow.names) || {});
+  const globalOverrides = (govRow && govRow.overrides) || {};
   const result = { announcements: announceRows || [], now };
 
   if (roll) {
     const hssCode = hssRow && hssRow.code ? hssRow.code : null;
     const attendanceMarks = (attRow && attRow.attendance) || {};
-    const overrides = (ovRow && ovRow.overrides) || {};
+    const dayOverrides = (ovRow && ovRow.overrides) || {};
     const weekSchedule = buildPersonalWeekSchedule(hssCode, roll);
 
     // Today's sessions with live status.
-    const todaysList = scheduleForDate(weekSchedule, overrides, now);
+    const todaysList = scheduleForDate(weekSchedule, globalOverrides, dayOverrides, now, roll);
     const nowMin = now.getHours() * 60 + now.getMinutes();
     const todaysSessions = todaysList.map(s => {
       let status = 'upcoming';
@@ -257,7 +359,7 @@ async function fetchSiteContext(rollNumber) {
     let nextClass = null;
     for (let dayOffset = 0; dayOffset <= 7 && !nextClass; dayOffset++) {
       const d = addDays(now, dayOffset);
-      const list = scheduleForDate(weekSchedule, overrides, d);
+      const list = scheduleForDate(weekSchedule, globalOverrides, dayOverrides, d, roll);
       const candidate = list.find(s => dayOffset > 0 || (now.getHours() * 60 + now.getMinutes()) < s.start);
       if (candidate) {
         nextClass = {
@@ -268,8 +370,28 @@ async function fetchSiteContext(rollNumber) {
       }
     }
 
+    // Full schedule for today plus the next 8 days, so the assistant can
+    // correctly answer "what do I have on Wednesday" / "next Tuesday" etc.
+    // instead of only knowing about today and a single "next class".
+    // Includes any day-specific overrides (added/removed sessions, both
+    // admin-wide and personal) that are already scheduled for that date.
+    const upcomingDays = [];
+    for (let dayOffset = 0; dayOffset <= 8; dayOffset++) {
+      const d = addDays(now, dayOffset);
+      const list = scheduleForDate(weekSchedule, globalOverrides, dayOverrides, d, roll);
+      upcomingDays.push({
+        label: dayOffset === 0 ? 'Today' : dayOffset === 1 ? 'Tomorrow' : DAY_NAMES[d.getDay()],
+        date: `${d.getDate()}/${d.getMonth() + 1}/${d.getFullYear()}`,
+        sessions: list.map(s => ({
+          code: s.code, name: courseNames[s.code] || s.code, type: s.type,
+          room: s.room, start: fmtHM(s.start), end: fmtHM(s.end), extra: !!(s.isExtra || s.isGlobalExtra),
+          note: s.note || null,
+        })),
+      });
+    }
+
     // Attendance stats.
-    const { stats, totalPresent, totalMarked } = computeStats(weekSchedule, overrides, attendanceMarks, hssCode, roll, now);
+    const { stats, totalPresent, totalMarked } = computeStats(weekSchedule, globalOverrides, dayOverrides, attendanceMarks, hssCode, roll, now);
     const overallPct = totalMarked ? Math.round((totalPresent / totalMarked) * 100) : null;
     const perCourse = statGroupsForActiveCourses(hssCode, roll).map(g => {
       const st = stats[g.key] || { present: 0, total: 0 };
@@ -286,14 +408,31 @@ async function fetchSiteContext(rollNumber) {
     result.hssCode = hssCode;
     result.hssName = hssCode ? (courseNames[hssCode] || hssCode) : null;
     result.isMba = isMbaRoll(roll);
+    result.fluidLabGroup = fluidLabGroupOf(roll);
     result.todaysSessions = todaysSessions;
     result.nextClass = nextClass;
+    result.upcomingDays = upcomingDays;
     result.attendance = { overallPct, totalPresent, totalMarked, perCourse };
   }
 
+  // Group PYQ/reference-book files by course so the assistant can answer
+  // "what PYQs do we have for X" / "any reference books for Y" precisely.
+  function groupByCourse(rows, mapFn) {
+    const grouped = {};
+    (rows || []).forEach(r => {
+      const code = r.course_code || 'Unsorted';
+      if (!grouped[code]) grouped[code] = [];
+      grouped[code].push(mapFn(r));
+    });
+    return grouped;
+  }
+  result.resourcesByCourse = {
+    pyq: groupByCourse(pyqFiles, r => r.file_name),
+    books: groupByCourse(bookFiles, r => (r.title ? `${r.title}${r.author ? ' — ' + r.author : ''}` : r.file_name)),
+  };
   result.resourceCounts = {
-    pyq: pyqCount && typeof pyqCount.count === 'number' ? pyqCount.count : null,
-    books: bookCount && typeof bookCount.count === 'number' ? bookCount.count : null,
+    pyq: pyqFiles ? pyqFiles.length : null,
+    books: bookFiles ? bookFiles.length : null,
   };
 
   return result;
@@ -306,10 +445,26 @@ function formatSiteContext(site) {
   const dateLabel = `${dayLabel} ${site.now.getDate()}/${site.now.getMonth() + 1}/${site.now.getFullYear()}`;
   lines.push(`Current date/time (IST): ${dateLabel}, ${fmtHM(site.now.getHours() * 60 + site.now.getMinutes())}`);
 
+  lines.push(`Course catalog (core CB courses, all students take all of these; credits shown as L-T-P-C = lecture-tutorial-practical hours/week and total credit points): ${COURSE_CODES.map(c => {
+    const cr = COURSE_CREDITS[c];
+    return `${c} (${DEFAULT_COURSE_NAMES[c] || c}${cr ? `, ${cr.l}-${cr.t}-${cr.p}-${cr.c}` : ''})`;
+  }).join(', ')}.`);
+  lines.push(`HSS elective options (student picks exactly one; credits shown the same way): ${HSS_ELECTIVES.map(h => {
+    const cr = COURSE_CREDITS[h.code];
+    return `${h.code} (${DEFAULT_COURSE_NAMES[h.code] || h.code}${cr ? `, ${cr.l}-${cr.t}-${cr.p}-${cr.c}` : ''})`;
+  }).join(', ')}.`);
+  lines.push(`Attendance policy: ${ATT_THRESHOLD}% is the minimum required; "can skip next N and stay ≥${ATT_THRESHOLD}%" / "needs to attend next N straight" figures below are computed against this threshold.`);
+
   if (site.roll) {
     if (site.studentName) lines.push(`Student: ${site.studentName} (${site.roll})`);
     lines.push(`HSS elective: ${site.hssName ? `${site.hssCode} — ${site.hssName}` : 'not yet selected'}`);
-    if (site.isMba) lines.push(`Also enrolled in the MBA-track course (HS2101 Mathematical Statistics).`);
+    if (site.isMba) {
+      const cr = COURSE_CREDITS[MBA_COURSE.code];
+      lines.push(`Also enrolled in the MBA-track course (HS2101 Mathematical Statistics${cr ? `, ${cr.l}-${cr.t}-${cr.p}-${cr.c}` : ''}).`);
+    }
+    if (site.fluidLabGroup) {
+      lines.push(`CB2102 (Fluid Mechanics) lab group: Group ${site.fluidLabGroup}. This lab is NOT weekly — it alternates between two sets of groups (1-8 and 9-16) every other week, normally on Friday 10:00-11:55 AM, and there was a one-off exception on 24 Aug 2026 where Groups 1-8 had it moved to Monday 11:00 AM-1:00 PM instead. The exact upcoming occurrences for this student's group are already correctly included in "Full schedule" below — trust that over trying to reason about the rotation yourself.`);
+    }
 
     if (site.todaysSessions.length) {
       lines.push(`Today's schedule:`);
@@ -325,6 +480,20 @@ function formatSiteContext(site) {
       lines.push(`Next class: ${nc.code} (${nc.name}) ${nc.type} at ${nc.start} in ${nc.room}, ${nc.when}.`);
     } else {
       lines.push(`Next class: none found in the coming week.`);
+    }
+
+    if (site.upcomingDays && site.upcomingDays.length) {
+      lines.push(`Full schedule for today and the next 8 days (this is the complete, exhaustive session list for each of these dates, already accounting for this student's HSS elective, MBA course if applicable, CB2102 lab rotation, and any admin/personal schedule changes for those dates — if a day has no lines under it, they genuinely have zero classes that day; never say "no other sessions" for any day unless it's listed here with nothing under it):`);
+      site.upcomingDays.forEach(day => {
+        lines.push(`${day.label} (${day.date}):`);
+        if (!day.sessions.length) {
+          lines.push(`  - no classes`);
+        } else {
+          day.sessions.forEach(s => {
+            lines.push(`  - ${s.start}-${s.end} ${s.code} (${s.name}) ${s.type} @ ${s.room}${s.extra ? ' [added for this day]' : ''}${s.note ? ' — ' + s.note : ''}`);
+          });
+        }
+      });
     }
 
     const att = site.attendance;
@@ -347,24 +516,55 @@ function formatSiteContext(site) {
     site.announcements.forEach(a => lines.push(`- ${a.message}`));
   }
 
-  if (site.resourceCounts.pyq !== null || site.resourceCounts.books !== null) {
-    const parts = [];
-    if (site.resourceCounts.pyq !== null) parts.push(`${site.resourceCounts.pyq} previous-year question files`);
-    if (site.resourceCounts.books !== null) parts.push(`${site.resourceCounts.books} reference books`);
-    lines.push(`Resources available in the app: ${parts.join(', ')} (student can browse these in the Resources tab).`);
+  const pyqByCourse = (site.resourcesByCourse && site.resourcesByCourse.pyq) || {};
+  const booksByCourse = (site.resourcesByCourse && site.resourcesByCourse.books) || {};
+  const pyqCourses = Object.keys(pyqByCourse);
+  const bookCourses = Object.keys(booksByCourse);
+  if (pyqCourses.length || bookCourses.length) {
+    lines.push(`Resources available in the app (student can browse/download these in the Resources tab; list file names exactly as given if asked "what PYQs/books do we have for X"):`);
+    if (pyqCourses.length) {
+      lines.push(`Previous-year question papers (${site.resourceCounts.pyq} files total):`);
+      pyqCourses.forEach(code => {
+        const files = pyqByCourse[code];
+        const shown = files.slice(0, 15).join(', ') + (files.length > 15 ? `, +${files.length - 15} more` : '');
+        lines.push(`- ${code} (${DEFAULT_COURSE_NAMES[code] || code}): ${shown}`);
+      });
+    } else {
+      lines.push(`Previous-year question papers: none uploaded yet.`);
+    }
+    if (bookCourses.length) {
+      lines.push(`Reference books (${site.resourceCounts.books} total):`);
+      bookCourses.forEach(code => {
+        const files = booksByCourse[code];
+        const shown = files.slice(0, 15).join(', ') + (files.length > 15 ? `, +${files.length - 15} more` : '');
+        lines.push(`- ${code} (${DEFAULT_COURSE_NAMES[code] || code}): ${shown}`);
+      });
+    } else {
+      lines.push(`Reference books: none uploaded yet.`);
+    }
   }
 
   return lines.join('\n');
 }
 
 function buildSystemPrompt(context, references, site) {
-  let prompt = `You are the in-app assistant for a CBE (Chemical & Biochemical Engineering) 2nd-year student timetable app at IIT Patna.
+  let prompt = `You are the in-app assistant for a CBE (Chemical & Biochemical Engineering) 2nd-year student timetable app at IIT Patna, built and maintained by Aarsh Jain (roll 2501CB23).
+
+What this app does, for context (answer confidently about these features when asked "how do I..." or "what can this app do"):
+- Timetable & attendance: shows each student's personal weekly schedule (core CB courses + their chosen HSS elective + MBA-track course if applicable), lets them mark each session present/absent/cancelled, and tracks running attendance % per course and overall against a ${ATT_THRESHOLD}% threshold.
+- PYQ (previous-year questions) and Reference Books tabs: browse/download files uploaded per course.
+- Announcements: admin can post short-lived announcements students see as a bell notification.
+- This AI chat assistant (you).
+- Admin-only actions (schedule overrides, uploading PYQs/books, announcements) are restricted to the developer's login and are not something a regular student can do from their own account.
 
 Rules:
 - Be direct and to the point. 1-3 sentences for most answers. Only go longer if the student explicitly asks for detail, a list, or steps.
 - No filler openers like "Great question!" or "I'd be happy to help." Just answer.
 - Plain text only — no markdown headers, no bullet-heavy formatting unless the answer is genuinely a list.
 - You DO have access to this student's live schedule, attendance, HSS elective, and app announcements — it's given to you below as ground truth. Use it directly and confidently; never say you don't have access to the site's data.
+- The data below includes an exhaustive day-by-day schedule for today plus the next 8 days. When asked about any specific day within that range, list everything shown for that day and nothing more — never state or imply a day has "no other sessions" unless the listed sessions for that exact day are already complete (which they always are, within this range). If asked about a day further out than what's listed, say you only have the schedule for the next 8 days and don't guess beyond it.
+- For attendance totals/percentages, always use the precomputed "Overall attendance" and "Per-course attendance" figures given below — never recompute them yourself from the day-by-day schedule, to avoid arithmetic mistakes.
+- If asked for a course's "credits", give the total credit points (the last number, C, in L-T-P-C) unless the student specifically asks for the L-T-P breakdown too.
 - If something is genuinely missing from the data below (e.g. a question about another student, or a feature with no data given), say so plainly instead of guessing. Never invent class timings, room numbers, or attendance figures that aren't in the data below.
 - You are not limited to app/timetable topics. Answer any question the student asks — coursework, general knowledge, advice, whatever — like a knowledgeable, helpful general assistant. Only nudge back on-topic if the question is actually about the app itself and you're missing the data to answer it.`;
 
@@ -520,7 +720,7 @@ async function callGroq(apiKey, model, systemPrompt, trimmedMessages) {
     body: JSON.stringify({
       model,
       messages: [{ role: 'system', content: systemPrompt }, ...trimmedMessages],
-      max_tokens: 400,
+      max_tokens: 700,
       temperature: 0.4,
       top_p: 0.9
     })
