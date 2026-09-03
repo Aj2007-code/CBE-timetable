@@ -543,6 +543,61 @@
   .ltpc-box.credit .v{color:var(--teal);}
   .credit-missing{font-size:12px; color:var(--text-faint); font-family:var(--mono);}
 
+  /* Mid-Sem tab */
+  .exam-intro{margin-bottom:16px;}
+  .exam-banner{
+    display:flex; align-items:center; gap:12px; flex-wrap:wrap;
+    border:1px solid var(--amber-dim); background:rgba(245,165,36,0.08);
+    border-radius:14px; padding:14px 16px; margin-bottom:22px;
+  }
+  .exam-banner-tag{
+    font-family:var(--mono); font-size:10.5px; font-weight:700; letter-spacing:.04em;
+    color:var(--amber); border:1px solid var(--amber-dim); border-radius:20px; padding:3px 10px; flex-shrink:0;
+  }
+  .exam-banner-msg{font-size:13.5px;}
+  .exam-banner-msg b{font-family:var(--mono); color:var(--amber); font-weight:700;}
+
+  .exam-tickets{display:grid; grid-template-columns:repeat(auto-fit, minmax(180px,1fr)); gap:10px; margin-bottom:6px;}
+  .exam-ticket{
+    border:1px solid var(--border); background:var(--surface); border-radius:14px; padding:14px;
+    display:flex; flex-direction:column; gap:8px;
+  }
+  .exam-ticket.is-next{border-color:var(--amber-dim); background:var(--surface-2);}
+  .exam-code{font-family:var(--mono); font-weight:800; font-size:15.5px;}
+  .exam-ticket.is-next .exam-code{color:var(--amber);}
+  .exam-name{font-size:12px; color:var(--text-dim); min-height:30px; display:block;}
+  .exam-flag{font-size:10.5px; color:var(--amber); font-family:var(--mono); line-height:1.4;}
+  .exam-meta{
+    display:flex; justify-content:space-between; align-items:center; gap:8px;
+    border-top:1px dashed var(--border-soft); padding-top:8px;
+    font-family:var(--mono); font-size:11px; color:var(--text-faint);
+  }
+  .exam-meta .exam-days{color:var(--text);}
+
+  .exam-empty{
+    font-size:12.5px; color:var(--text-dim); border:1px dashed var(--border); border-radius:14px;
+    padding:14px 16px; line-height:1.6;
+  }
+  .exam-empty b{color:var(--text);}
+
+  .exam-toggle-row{display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-top:10px; margin-bottom:14px;}
+  .exam-toggle-row input{
+    flex:1; min-width:160px; background:var(--surface-2); border:1px solid var(--border); color:var(--text);
+    font-family:var(--mono); font-size:12.5px; border-radius:8px; padding:8px 12px; outline:none;
+  }
+  .exam-toggle-row input::placeholder{color:var(--text-faint);}
+  .exam-toggle-row input:focus{border-color:var(--teal);}
+
+  .exam-full-sheet{display:none;}
+  .exam-full-sheet.open{display:block;}
+  .exam-day-block{margin-bottom:16px;}
+  .exam-day-head{font-family:var(--mono); font-size:12px; color:var(--text); margin-bottom:6px;}
+  .exam-day-head span{color:var(--text-faint); margin-left:8px;}
+  .exam-slot-row{display:grid; grid-template-columns:64px 1fr; gap:10px; padding:4px 0; font-size:12.5px; line-height:1.6;}
+  .exam-slot-lbl{color:var(--text-faint); font-family:var(--mono); font-size:10.5px; padding-top:2px;}
+  .exam-codes span.mine{color:var(--amber); background:rgba(245,165,36,0.12); border-radius:3px; padding:0 2px;}
+  .exam-codes span.dim{opacity:.25;}
+
   /* PYQ tab */
   .pyq-intro{margin-bottom:16px;}
   .pyq-intro-top{display:flex; align-items:flex-start; justify-content:space-between; gap:12px;}

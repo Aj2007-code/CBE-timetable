@@ -90,6 +90,7 @@
   <div class="tabs">
     <button class="tab-btn" data-view="spi">SPI</button>
     <button class="tab-btn active" data-view="now">Now</button>
+    <button class="tab-btn" data-view="exams">Mid-Sem</button>
     <button class="tab-btn" data-view="week">Week</button>
     <button class="tab-btn" data-view="attendance">Attendance</button>
     <button class="tab-btn" data-view="credits">Credits</button>
@@ -130,6 +131,10 @@
   <div class="view active" id="view-now">
     <div class="day-row" id="dayRow"></div>
     <div id="nowTimelineWrap"></div>
+  </div>
+
+  <div class="view" id="view-exams">
+    <div id="examsWrap"></div>
   </div>
 
   <div class="view" id="view-week">
@@ -281,6 +286,10 @@
       <div class="feature-item">
         <span class="feature-tag spi">SPI</span>
         <span class="info-text"><b>SPI Calculator</b> — open the <b>SPI</b> tab, pick a grade for each of your courses this semester, then tap <b>Calculate SPI</b> once you're done. Your SPI out of 10 shows up instantly, along with a subject-by-subject breakdown.</span>
+      </div>
+      <div class="feature-item">
+        <span class="feature-tag cr">MS</span>
+        <span class="info-text"><b>Mid-Sem</b> — the <b>Mid-Sem</b> tab shows your five CB21xx exam dates and your HSS elective's exam, with a countdown to the next one, plus the full week's datesheet if you need to check a clash.</span>
       </div>
       <div class="feature-item">
         <span class="feature-tag cr">CR</span>

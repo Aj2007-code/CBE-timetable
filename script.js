@@ -258,6 +258,53 @@
     ]
   };
 
+  // ===== Mid-semester exam datesheet (20–28 Sep 2026) =====
+  const MIDSEM_SLOT_MORNING = "10:30 AM – 12:30 PM";
+
+  const MIDSEM_CORE = [
+    { code:"CB2101", date:"2026-09-21", day:"Monday" },
+    { code:"CB2102", date:"2026-09-23", day:"Wednesday" },
+    { code:"CB2105", date:"2026-09-24", day:"Thursday" },
+    { code:"CB2103", date:"2026-09-25", day:"Friday" },
+    { code:"CB2104", date:"2026-09-26", day:"Saturday",
+      note:"Also listed combined with CH2105 on 27 Sep in the source sheet — worth confirming with the department." },
+  ];
+
+  // HS2110 / HS2111 / HS2112 all sit in the same exam slot — only the code differs by section.
+  const MIDSEM_HSS_DATE = "2026-09-22";
+  const MIDSEM_HSS_DAY = "Tuesday";
+
+  // Full week, both slots, every branch — for spotting a friend's exam or a room clash.
+  const MIDSEM_FULL = [
+    { date:"2026-09-20", day:"Sunday",
+      morning:"CH001, CH4101, CH5102, CS1101, EC5105, HS2101, MA4107, MA5101, PH4101, PH5101",
+      evening:"CE6133, CH7103, EC5110, HS3102, HS5111, HS7101, HS7103, MA7102" },
+    { date:"2026-09-21", day:"Monday",
+      morning:"CE2101, CH1101, CH2104/CB2101, CH4102, CS2101, EC2101, EP2101, MA2101, MA4108, ME2103, MM2101, PH1101",
+      evening:"CB3101, CE3101, CH3101, CS3101, CS6112, EC3101, EP3101, EP4105, HS3101, HS7104, MA3101, MA6109, ME3101, ME6113, MM3101, MM4102, MM6105, PH6124" },
+    { date:"2026-09-22", day:"Tuesday",
+      morning:"CB4107, CH4109, CH5103, HS001, HS2110, HS2111, HS2112, HS4111, MA5102, PH4107, PH5102",
+      evening:"CB3106, CB5101, CE5101, CE5104, CE5107, CE5108/CE4104/CE6119, CE5111, CE6135, CS3106, CS5102, EC5102, EC5106, EC5113, HS3108, HS7105, MC5102, ME3106, ME5101, MM3106, MM4105, MM5101, PH4109, PH7104" },
+    { date:"2026-09-23", day:"Wednesday",
+      morning:"CB2102, CB6104, CE2102, CH2102, CH4103, CS2102, EC2102, EP2102, HS2102, MA1101, MA2102, MA4109, MA5103, ME2102, MM2102, PH4103",
+      evening:"CB3102, CE3102, CE5106, CH3102, CS3102, EC3102, EC5101, EE3102, EE5101, EP3102, HS3111, HS7106, MA3102, MC5101/CS5101, ME3102, ME5103, ME6104, MH5101, MM3102, MM5102" },
+    { date:"2026-09-24", day:"Thursday",
+      morning:"CB2105, CH2101, CS4110/CS6101/MA5104, HS2114, MA4106/MA5106, PH4102, PH5105, PH5111, PH5113/PH6119",
+      evening:"CB3103, CB5102, CE3103, CE5102, CE5105, CE5109/CE6124, CE5112, CH3103, CS3103, EC3103, EC5104, EC6101, EE3101, EE5103, EP3103, HS3103, MA3103, ME3103, ME5106, MM3103, MM5103" },
+    { date:"2026-09-25", day:"Friday",
+      morning:"CB2103, CE2103, CH2103, CH4104, CS2103, EC2103, EE1101, EE2103, EP2103, HS2103, MA001, MA2103, MA4110, ME1102, ME2101, MM2103, PH4104",
+      evening:"CB3104, CB4108, CB5103, CE3104, CE5103, CE5110/CE6120, CE5113, CH3104, CS3104, CS4113, EC3104, EC5103, EE5102, EP3104, HS3104, MA3104, MA6106, ME3104, ME4103, ME5102, ME5108, MM3104, MM4107, MM5104, PH4110" },
+    { date:"2026-09-26", day:"Saturday",
+      morning:"CB2104, CE2104, CH2104, CH4105, CS2104, EE2101, EP2104, HS1101, HS2104, MA2104, MA4111, ME2104, MM2104, PH4105",
+      evening:"CB3105, CE6109, CS3105, EE6103, EP3105, HS4118, HS4119, MA3105, ME3105" },
+    { date:"2026-09-27", day:"Sunday",
+      morning:"CE1101, CE6128, CH2105/CB2104, CS2105, EC3105, EE2102, HS2105, HS4123, MA2105, MM2105, PH001",
+      evening:"CB4103, CB6105, CE4106, CE6130, CH4108, CS6109, EC4105, EC5119, EE6104, ME4105, ME4106, ME6109, ME6111" },
+    { date:"2026-09-28", day:"Monday",
+      morning:"HS2115, HS4109",
+      evening:"CE6101, CE6116/CE4101, CE6125, CH5105, CS4101/CS6103, EC4102, EC5114, EE6117, MA4103, ME4101, ME6102/ME4102, ME6106, ME6107, MM6101" },
+  ];
+
   let hssCode = null; 
   let PERSONAL_SCHEDULE = SCHEDULE.slice();
 
@@ -2044,6 +2091,132 @@
     if(totalEl) totalEl.textContent = totalCredits ? (Math.round(totalCredits*100)/100) : '—';
   }
 
+  function midsemDaysUntil(iso){
+    const today = new Date(); today.setHours(0,0,0,0);
+    const d = new Date(iso+"T00:00:00");
+    return Math.round((d-today)/86400000);
+  }
+  function midsemDaysLabel(n){
+    if(n<0) return 'done';
+    if(n===0) return 'today';
+    if(n===1) return 'tomorrow';
+    return 'in '+n+'d';
+  }
+  function midsemFmtDate(iso){
+    const d = new Date(iso+"T00:00:00");
+    return d.toLocaleDateString('en-GB',{day:'numeric', month:'short'});
+  }
+
+  let examSearchQuery = '';
+  let examSheetOpen = false;
+
+  function renderExamsView(){
+    const wrap = document.getElementById('examsWrap');
+    if(!wrap) return;
+
+    const hasElective = hssCode && HSS_MAP[hssCode];
+    const items = MIDSEM_CORE.map(c=>({ code:c.code, day:c.day, date:c.date, delta: midsemDaysUntil(c.date) }));
+    if(hasElective) items.push({ code:hssCode, day:MIDSEM_HSS_DAY, date:MIDSEM_HSS_DATE, delta: midsemDaysUntil(MIDSEM_HSS_DATE) });
+    items.sort((a,b)=>a.delta-b.delta);
+    const next = items.find(c=>c.delta>=0) || items[items.length-1];
+
+    const tickets = MIDSEM_CORE.map(c=>{
+      const delta = midsemDaysUntil(c.date);
+      const isNext = next && next.code===c.code;
+      return `
+      <div class="exam-ticket ${isNext?'is-next':''}">
+        <div class="exam-code">${c.code}</div>
+        ${nameSpan(c.code,'exam-name')}
+        ${c.note ? `<div class="exam-flag">${escapeHtml(c.note)}</div>` : ''}
+        <div class="exam-meta">
+          <span>${c.day}, ${midsemFmtDate(c.date)}</span>
+          <span class="exam-days">${midsemDaysLabel(delta)}</span>
+        </div>
+      </div>`;
+    }).join('');
+
+    let electiveBlock;
+    if(hasElective){
+      const delta = midsemDaysUntil(MIDSEM_HSS_DATE);
+      const isNext = next && next.code===hssCode;
+      electiveBlock = `
+      <div class="exam-ticket elective ${isNext?'is-next':''}">
+        <div class="exam-code">${hssCode}</div>
+        ${nameSpan(hssCode,'exam-name')}
+        <div class="exam-meta">
+          <span>${MIDSEM_HSS_DAY}, ${midsemFmtDate(MIDSEM_HSS_DATE)}</span>
+          <span class="exam-days">${midsemDaysLabel(delta)}</span>
+        </div>
+      </div>`;
+    } else {
+      electiveBlock = `
+      <div class="exam-empty">
+        Set your HSS elective from the <b>HSS</b> button above to see its exam date here — HS2110, HS2111 and HS2112 all sit in the same ${MIDSEM_HSS_DAY}, ${midsemFmtDate(MIDSEM_HSS_DATE)} slot, ${MIDSEM_SLOT_MORNING}.
+      </div>`;
+    }
+
+    const bannerMsg = next
+      ? `<b>${next.code}</b> — ${next.day}, ${midsemFmtDate(next.date)}, 10:30&nbsp;am &middot; ${midsemDaysLabel(next.delta)}`
+      : '';
+
+    const coreCodes = MIDSEM_CORE.map(c=>c.code);
+    const q = examSearchQuery;
+
+    function highlightRow(codesStr){
+      return codesStr.split(', ').map(tok=>{
+        const bare = tok.split('/')[0];
+        const isMine = coreCodes.includes(bare) || (hasElective && bare === hssCode);
+        const matches = !q || tok.toUpperCase().includes(q);
+        const cls = [isMine ? 'mine' : '', !matches ? 'dim' : ''].filter(Boolean).join(' ');
+        return `<span class="${cls}">${escapeHtml(tok)}</span>`;
+      }).join(', ');
+    }
+
+    const fullRows = MIDSEM_FULL.map(d=>`
+      <div class="exam-day-block">
+        <div class="exam-day-head">${d.day}<span>${midsemFmtDate(d.date)}</span></div>
+        <div class="exam-slot-row"><span class="exam-slot-lbl">Morning</span><span class="exam-codes">${highlightRow(d.morning)}</span></div>
+        <div class="exam-slot-row"><span class="exam-slot-lbl">Evening</span><span class="exam-codes">${highlightRow(d.evening)}</span></div>
+      </div>`).join('');
+
+    wrap.innerHTML = `
+      <div class="exam-intro">
+        <div class="pyq-intro-title">Mid-Sem Datesheet</div>
+        <div class="pyq-intro-sub">20–28 September 2026 · your five CB21xx papers, plus your HSS elective.</div>
+      </div>
+      ${next ? `<div class="exam-banner"><span class="exam-banner-tag">Next up</span><span class="exam-banner-msg">${bannerMsg}</span></div>` : ''}
+
+      <div class="section-label">CB21xx core papers</div>
+      <div class="exam-tickets">${tickets}</div>
+
+      <div class="section-label">HSS Elective-I</div>
+      ${electiveBlock}
+
+      <div class="section-label">Full week, both slots</div>
+      <div class="exam-toggle-row">
+        <button class="pyq-admin-link" id="examToggleBtn">${examSheetOpen ? 'Hide full datesheet' : 'Show full datesheet'}</button>
+        <input type="text" id="examSearch" placeholder="Jump to a code, e.g. ME3104" value="${escapeHtml(examSearchQuery)}" />
+      </div>
+      <div class="exam-full-sheet ${examSheetOpen ? 'open':''}" id="examFullSheet">${fullRows}</div>
+    `;
+
+    const toggleBtn = document.getElementById('examToggleBtn');
+    if(toggleBtn) toggleBtn.addEventListener('click', ()=>{
+      examSheetOpen = !examSheetOpen;
+      renderExamsView();
+    });
+    const searchInput = document.getElementById('examSearch');
+    if(searchInput){
+      searchInput.addEventListener('input', (e)=>{
+        examSearchQuery = e.target.value.trim().toUpperCase();
+        if(examSearchQuery) examSheetOpen = true;
+        renderExamsView();
+        const el = document.getElementById('examSearch');
+        if(el){ el.focus(); el.selectionStart = el.selectionEnd = el.value.length; }
+      });
+    }
+  }
+
   let pyqFiles = {};          
   let pyqOpenCourse = null;   
   let pyqLoaded = false;
@@ -2718,6 +2891,7 @@
     renderNowTimeline();
     renderWeek();
     renderAttendanceView();
+    renderExamsView();
     renderCreditsView();
     renderSpiView();
     renderPyqView();
