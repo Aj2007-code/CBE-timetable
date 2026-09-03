@@ -566,6 +566,7 @@
   .exam-code{font-family:var(--mono); font-weight:800; font-size:15.5px;}
   .exam-ticket.is-next .exam-code{color:var(--amber);}
   .exam-name{font-size:12px; color:var(--text-dim); min-height:30px; display:block;}
+  .exam-time{font-family:var(--mono); font-size:10.5px; color:var(--text-faint); letter-spacing:.01em;}
   .exam-flag{font-size:10.5px; color:var(--amber); font-family:var(--mono); line-height:1.4;}
   .exam-meta{
     display:flex; justify-content:space-between; align-items:center; gap:8px;
@@ -593,8 +594,9 @@
   .exam-day-block{margin-bottom:16px;}
   .exam-day-head{font-family:var(--mono); font-size:12px; color:var(--text); margin-bottom:6px;}
   .exam-day-head span{color:var(--text-faint); margin-left:8px;}
-  .exam-slot-row{display:grid; grid-template-columns:64px 1fr; gap:10px; padding:4px 0; font-size:12.5px; line-height:1.6;}
-  .exam-slot-lbl{color:var(--text-faint); font-family:var(--mono); font-size:10.5px; padding-top:2px;}
+  .exam-slot-row{display:grid; grid-template-columns:78px 1fr; gap:10px; padding:4px 0; font-size:12.5px; line-height:1.6;}
+  .exam-slot-lbl{color:var(--text-faint); font-family:var(--mono); font-size:10.5px; padding-top:2px; display:flex; flex-direction:column;}
+  .exam-slot-time{color:var(--text-faint); opacity:.7; font-size:9.5px; margin-top:1px;}
   .exam-codes span.mine{color:var(--amber); background:rgba(245,165,36,0.12); border-radius:3px; padding:0 2px;}
   .exam-codes span.dim{opacity:.25;}
 

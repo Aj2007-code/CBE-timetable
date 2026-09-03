@@ -260,6 +260,7 @@
 
   // ===== Mid-semester exam datesheet (20–28 Sep 2026) =====
   const MIDSEM_SLOT_MORNING = "10:30 AM – 12:30 PM";
+  const MIDSEM_SLOT_EVENING = "3:30 PM – 5:30 PM";
 
   const MIDSEM_CORE = [
     { code:"CB2101", date:"2026-09-21", day:"Monday" },
@@ -2128,6 +2129,7 @@
         <div class="exam-code">${c.code}</div>
         ${nameSpan(c.code,'exam-name')}
         ${c.note ? `<div class="exam-flag">${escapeHtml(c.note)}</div>` : ''}
+        <div class="exam-time">${MIDSEM_SLOT_MORNING}</div>
         <div class="exam-meta">
           <span>${c.day}, ${midsemFmtDate(c.date)}</span>
           <span class="exam-days">${midsemDaysLabel(delta)}</span>
@@ -2143,6 +2145,7 @@
       <div class="exam-ticket elective ${isNext?'is-next':''}">
         <div class="exam-code">${hssCode}</div>
         ${nameSpan(hssCode,'exam-name')}
+        <div class="exam-time">${MIDSEM_SLOT_MORNING}</div>
         <div class="exam-meta">
           <span>${MIDSEM_HSS_DAY}, ${midsemFmtDate(MIDSEM_HSS_DATE)}</span>
           <span class="exam-days">${midsemDaysLabel(delta)}</span>
@@ -2175,8 +2178,8 @@
     const fullRows = MIDSEM_FULL.map(d=>`
       <div class="exam-day-block">
         <div class="exam-day-head">${d.day}<span>${midsemFmtDate(d.date)}</span></div>
-        <div class="exam-slot-row"><span class="exam-slot-lbl">Morning</span><span class="exam-codes">${highlightRow(d.morning)}</span></div>
-        <div class="exam-slot-row"><span class="exam-slot-lbl">Evening</span><span class="exam-codes">${highlightRow(d.evening)}</span></div>
+        <div class="exam-slot-row"><span class="exam-slot-lbl">Morning<span class="exam-slot-time">10:30–12:30</span></span><span class="exam-codes">${highlightRow(d.morning)}</span></div>
+        <div class="exam-slot-row"><span class="exam-slot-lbl">Evening<span class="exam-slot-time">3:30–5:30</span></span><span class="exam-codes">${highlightRow(d.evening)}</span></div>
       </div>`).join('');
 
     wrap.innerHTML = `
