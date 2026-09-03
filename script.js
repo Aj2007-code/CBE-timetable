@@ -2181,8 +2181,8 @@
 
     wrap.innerHTML = `
       <div class="exam-intro">
-        <div class="pyq-intro-title">Mid-Sem Datesheet</div>
-        <div class="pyq-intro-sub">20–28 September 2026 · your five CB21xx papers, plus your HSS elective.</div>
+        <div class="pyq-intro-title">Mid-Sem TimeTable</div>
+        <div class="pyq-intro-sub">20–28 September 2026</div>
       </div>
       ${next ? `<div class="exam-banner"><span class="exam-banner-tag">Next up</span><span class="exam-banner-msg">${bannerMsg}</span></div>` : ''}
 
