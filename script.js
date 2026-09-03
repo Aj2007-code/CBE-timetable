@@ -267,7 +267,7 @@
     { code:"CB2105", date:"2026-09-24", day:"Thursday" },
     { code:"CB2103", date:"2026-09-25", day:"Friday" },
     { code:"CB2104", date:"2026-09-26", day:"Saturday",
-      note:"Also listed combined with CH2105 on 27 Sep in the source sheet — worth confirming with the department." },
+      note:"Also listed with CH2105 on 27 Sep -So Ambigious" },
   ];
 
   // HS2110 / HS2111 / HS2112 all sit in the same exam slot — only the code differs by section.
