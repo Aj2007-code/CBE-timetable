@@ -2189,7 +2189,7 @@
       </div>
       ${next ? `<div class="exam-banner"><span class="exam-banner-tag">Next up</span><span class="exam-banner-msg">${bannerMsg}</span></div>` : ''}
 
-      <div class="section-label">CB21xx core papers</div>
+      <div class="section-label">CBE EXAMS</div>
       <div class="exam-tickets">${tickets}</div>
 
       <div class="section-label">HSS Elective-I</div>
