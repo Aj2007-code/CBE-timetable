@@ -31,8 +31,6 @@ module.exports = async (req, res) => {
     return;
   }
 
-  // Real gate: a valid signed admin session token from /api/admin-login.
-  // A request can no longer get in here just by claiming `roll: "2501CB23"`.
   if (!requireAdmin(req)) {
     res.status(401).json({ error: "Admin session required — please log in again" });
     return;

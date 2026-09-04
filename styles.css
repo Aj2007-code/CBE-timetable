@@ -544,7 +544,6 @@
   .ltpc-box.credit .v{color:var(--teal);}
   .credit-missing{font-size:12px; color:var(--text-faint); font-family:var(--mono);}
 
-  /* Mid-Sem tab */
   .exam-intro{margin-bottom:16px;}
   .exam-banner{
     display:flex; align-items:center; gap:12px; flex-wrap:wrap;
@@ -601,7 +600,6 @@
   .exam-codes span.mine{color:var(--amber); background:rgba(245,165,36,0.12); border-radius:3px; padding:0 2px;}
   .exam-codes span.dim{opacity:.25;}
 
-  /* PYQ tab */
   .pyq-intro{margin-bottom:16px;}
   .pyq-intro-top{display:flex; align-items:flex-start; justify-content:space-between; gap:12px;}
   .pyq-intro-title{font-size:17px; font-weight:800; margin-bottom:6px;}
@@ -709,7 +707,6 @@
   .backup-meta{font-family:var(--mono); font-size:11px; color:var(--text-faint); margin-top:10px;}
   .backup-meta.due{color:var(--amber);}
 
-  /* ===== Attendance mode + auto-backup settings box (Attendance tab) ===== */
   .attmode-current-row{display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; margin-bottom:6px;}
   .attmode-current-text{font-size:12.5px; color:var(--text-dim);}
   .attmode-current-text b{color:var(--text);}
@@ -930,7 +927,6 @@
     .spi-breakdown-grid{grid-template-columns:1fr;}
   }
 
-  /* ===== AI Assistant chat widget ===== */
   .chat-fab{
     position:fixed; right:20px; bottom:20px; z-index:60;
     width:54px; height:54px; border-radius:50%; border:none; cursor:pointer;

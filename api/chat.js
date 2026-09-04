@@ -8,18 +8,10 @@ if (process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY) {
   supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 }
 
-// ============================================================================
-// Site data — mirrors the constants/logic in script.js so the assistant can
-// answer with real, computed numbers (schedule, attendance %, HSS, overrides)
-// instead of only whatever the frontend happened to pass in `context`.
-// If script.js's SCHEDULE / HSS_ELECTIVES / MBA_COURSE ever change, mirror
-// the change here too — this is a deliberate duplicate, not a shared import.
-// ============================================================================
-
 function tm(h, m) { return h * 60 + m; }
 const pad = n => (n < 10 ? '0' + n : '' + n);
 
-const SEMESTER_START = new Date(2026, 6, 28); // 28 Jul 2026 (Tue)
+const SEMESTER_START = new Date(2026, 6, 28); 
 const ATT_THRESHOLD = 75;
 const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
@@ -38,9 +30,7 @@ const SCHEDULE = [
   { day: 4, start: tm(16, 0), end: tm(18, 0), code: "CB2104", type: "lecture", room: "LT001" },
   { day: 5, start: tm(9, 0), end: tm(9, 55), code: "CB2105", type: "lecture", room: "R110" },
   { day: 5, start: tm(15, 0), end: tm(15, 55), code: "CB2102", type: "lecture", room: "R102" },
-  // NOTE: CB2102's lab is intentionally NOT a fixed weekly slot here — it's a
-  // 16-group, alternating-week rotation with a one-off exception, injected
-  // per-student by fluidLabSessionForDate() below (mirrors script.js exactly).
+ 
 ].sort((a, b) => a.day - b.day || a.start - b.start);
 
 const COURSE_CODES = [...new Set(SCHEDULE.map(s => s.code))].sort();
@@ -57,9 +47,6 @@ const DEFAULT_COURSE_NAMES = {
   HS2112: "Introduction to Demography",
 };
 
-// L-T-P-C credit structure per course — mirrors script.js's COURSE_CREDITS
-// (used there for the SPI calculator). l=lecture, t=tutorial, p=practical
-// hours/week, c=credit points.
 const COURSE_CREDITS = {
   CB2101: { l: 2, t: 0, p: 0, c: 2 },
   CB2102: { l: 3, t: 1, p: 2, c: 5 },
@@ -73,11 +60,6 @@ const COURSE_CREDITS = {
 };
 
 const LAB_SPLIT_COURSES = new Set(["CB2102", "CB2103"]);
-
-// ---- CB2102 Fluid Mechanics Lab: 16 groups, alternating weeks ----
-// Mirrors script.js exactly — do not let this drift. Groups 1-8 ("set A")
-// and Groups 9-16 ("set B") take the lab on alternating weeks, with one
-// known one-off exception. Roster sourced from CB2102_LAB_Group_list.pdf.
 const FLUID_LAB_GROUPS = {
   1: ["2501CB01", "2501CB02", "2501CB03", "2501CB04", "2501CB05", "2501CT07", "2501CT26"],
   2: ["2501CB06", "2501CB07", "2501CB08", "2501CB09", "2501CB10", "2501CT19", "2501CT23"],
@@ -168,8 +150,6 @@ STUDENTS.forEach(s => STUDENT_MAP[s.roll.toUpperCase()] = s.name);
 const ANNOUNCE_TTL_HOURS = 6;
 
 function getISTNow() {
-  // India has no DST, so this stays accurate; matches the client's own
-  // wall-clock reading of "now" for IST users.
   return new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
 }
 function isoDate(d) { return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()); }
@@ -273,16 +253,11 @@ function computeStats(weekSchedule, globalOverrides, dayOverrides, attendanceMar
       scheduleForDate(weekSchedule, globalOverrides, dayOverrides, d, roll).forEach(s => {
         if (!sessionHasStarted(d, s, now)) return;
         const key = markKeyFor(iso, s);
-        // Same fix as script.js: which way an unmarked session counts
-        // depends on the student's own attendance-mode preference —
-        // 'auto' (auto-present) defaults to present, everything else
-        // (conventional) defaults to absent.
+        
         const val = attendanceMarks[key] || (attendanceMode === 'auto' ? 'p' : 'a');
         if (val === 'c') return;
         const statKey = statKeyForSession(s.code, s.type);
-        // Same fix as script.js: ignore sessions that don't belong to a
-        // currently-active course (e.g. a since-switched HSS elective) so
-        // this total always matches what's shown on the attendance cards.
+       
         if (!activeKeys.has(statKey)) return;
         stats[statKey].total++;
         totalMarked++;
@@ -317,9 +292,6 @@ async function safeSingle(query) {
   }
 }
 
-// Fetches this student's live data from Supabase and computes the same
-// schedule/attendance numbers the frontend shows, so the assistant can
-// answer accurately without the frontend having to spell everything out.
 async function fetchSiteContext(rollNumber) {
   const roll = rollNumber ? String(rollNumber).toUpperCase() : null;
   const now = getISTNow();
@@ -348,7 +320,6 @@ async function fetchSiteContext(rollNumber) {
     const attendanceMode = (settingsRow && settingsRow.attendance_mode === 'auto') ? 'auto' : 'conventional';
     const weekSchedule = buildPersonalWeekSchedule(hssCode, roll);
 
-    // Today's sessions with live status.
     const todaysList = scheduleForDate(weekSchedule, globalOverrides, dayOverrides, now, roll);
     const nowMin = now.getHours() * 60 + now.getMinutes();
     const todaysSessions = todaysList.map(s => {
@@ -361,7 +332,6 @@ async function fetchSiteContext(rollNumber) {
       };
     });
 
-    // Next upcoming class, searching forward if none left today.
     let nextClass = null;
     for (let dayOffset = 0; dayOffset <= 7 && !nextClass; dayOffset++) {
       const d = addDays(now, dayOffset);
@@ -376,11 +346,6 @@ async function fetchSiteContext(rollNumber) {
       }
     }
 
-    // Full schedule for today plus the next 8 days, so the assistant can
-    // correctly answer "what do I have on Wednesday" / "next Tuesday" etc.
-    // instead of only knowing about today and a single "next class".
-    // Includes any day-specific overrides (added/removed sessions, both
-    // admin-wide and personal) that are already scheduled for that date.
     const upcomingDays = [];
     for (let dayOffset = 0; dayOffset <= 8; dayOffset++) {
       const d = addDays(now, dayOffset);
@@ -396,7 +361,6 @@ async function fetchSiteContext(rollNumber) {
       });
     }
 
-    // Attendance stats.
     const { stats, totalPresent, totalMarked } = computeStats(weekSchedule, globalOverrides, dayOverrides, attendanceMarks, hssCode, roll, now, attendanceMode);
     const overallPct = totalMarked ? Math.round((totalPresent / totalMarked) * 100) : null;
     const perCourse = statGroupsForActiveCourses(hssCode, roll).map(g => {
@@ -421,8 +385,6 @@ async function fetchSiteContext(rollNumber) {
     result.attendance = { overallPct, totalPresent, totalMarked, perCourse, mode: attendanceMode };
   }
 
-  // Group PYQ/reference-book files by course so the assistant can answer
-  // "what PYQs do we have for X" / "any reference books for Y" precisely.
   function groupByCourse(rows, mapFn) {
     const grouped = {};
     (rows || []).forEach(r => {
@@ -598,7 +560,6 @@ Rules:
   return prompt;
 }
 
-// Pull the most recent user message to use as the search query for past Q&A.
 function getLatestUserQuestion(trimmedMessages) {
   for (let i = trimmedMessages.length - 1; i >= 0; i--) {
     if (trimmedMessages[i].role === 'user') return trimmedMessages[i].content;
@@ -632,9 +593,6 @@ async function getEmbedding(text) {
 async function getRelevantReferences(question) {
   if (!supabase || !question || question.trim().length < 3) return [];
 
-  // Best: semantic search — matches by MEANING, so a differently
-  // phrased or informally-worded question still finds the relevant
-  // past answer, no matter how old it is.
   const embedding = await getEmbedding(question);
   if (embedding) {
     try {
@@ -644,12 +602,9 @@ async function getRelevantReferences(question) {
       });
       if (!error && data && data.length) return data;
     } catch (e) {
-      // fall through to keyword-based search below
     }
   }
 
-  // Fallback (no embeddings key configured, or semantic search found
-  // nothing): plain full-text search on exact-ish wording.
   try {
     const { data, error } = await supabase
       .from('cbe_ai_knowledge')
@@ -659,7 +614,6 @@ async function getRelevantReferences(question) {
 
     if (!error && data && data.length) return data;
 
-    // Last resort: fuzzy trigram match for rephrased/informal wording.
     const { data: fuzzyData, error: fuzzyError } = await supabase.rpc('match_ai_knowledge', {
       search_query: question,
       match_count: 5
@@ -683,7 +637,7 @@ async function loadChatHistory(rollNumber, limit) {
       .limit(limit);
 
     if (error || !data) return [];
-    return data.reverse(); // chronological order for the model
+    return data.reverse(); 
   } catch (e) {
     return [];
   }
@@ -698,7 +652,6 @@ async function saveChatTurn(rollNumber, role, content) {
       content: content.slice(0, 4000)
     });
   } catch (e) {
-    // Non-fatal — history logging should never break the chat response.
   }
 }
 
@@ -713,7 +666,6 @@ async function saveQA(question, answer, rollNumber) {
       embedding: embedding || null
     });
   } catch (e) {
-    // Non-fatal — memory logging should never break the chat response.
   }
 }
 
@@ -767,9 +719,6 @@ module.exports = async function handler(req, res) {
 
   const rollNumber = body && body.context && body.context.rollNumber;
 
-  // If the client only sent a short/fresh conversation (e.g. page just
-  // loaded), pull in this student's stored history so the AI picks up
-  // where earlier sessions left off, instead of starting from scratch.
   let effectiveMessages = trimmed;
   if (rollNumber && trimmed.length <= 2) {
     const history = await loadChatHistory(rollNumber, 30);
@@ -813,8 +762,6 @@ module.exports = async function handler(req, res) {
       return;
     }
 
-    // Save this exchange so future students' questions can benefit from it,
-    // and so this specific student's conversation persists across sessions.
     await saveQA(latestQuestion, reply, rollNumber);
     if (rollNumber) {
       await saveChatTurn(rollNumber, 'user', latestQuestion);

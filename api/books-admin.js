@@ -1,6 +1,6 @@
 const SUPABASE_URL = "https://ektzrezmwzhautdmbrwf.supabase.co";
 const BUCKET = "books";
-const MAX_BYTES = 50 * 1024 * 1024; // keep in sync with Supabase's plan-level cap — see notes below
+const MAX_BYTES = 50 * 1024 * 1024; 
 const { requireAdmin, ADMIN_ROLL } = require("./_adminAuth");
 
 function serviceHeaders(extra) {
@@ -31,8 +31,6 @@ module.exports = async (req, res) => {
     return;
   }
 
-  // Real gate: a valid signed admin session token from /api/admin-login.
-  // A request can no longer get in here just by claiming `roll: "2501CB23"`.
   if (!requireAdmin(req)) {
     res.status(401).json({ error: "Admin session required — please log in again" });
     return;
@@ -54,10 +52,7 @@ module.exports = async (req, res) => {
   }
 
   try {
-    // Step 1: client asks for a place to upload. We hand back a short-lived
-    // signed URL. The actual file bytes never touch this function — the
-    // browser PUTs them straight to Supabase Storage. This is what lets us
-    // get past Vercel's ~4.5MB serverless request body limit.
+  
     if (body.action === "get-upload-url") {
       const { courseCode, fileName, fileSize } = body;
       if (!courseCode || !fileName) {
@@ -92,16 +87,11 @@ module.exports = async (req, res) => {
       }
 
       const signData = await signRes.json();
-      // signData.url looks like "/object/upload/sign/books/<path>?token=..."
       const uploadUrl = `${SUPABASE_URL}/storage/v1${signData.url}`;
 
       res.status(200).json({ ok: true, uploadUrl, storagePath, cleanName });
       return;
     }
-
-    // Step 2: client has already PUT the file bytes directly to `uploadUrl`
-    // above. Now we just record the metadata — this payload is tiny (no
-    // base64 file data), so it's well within Vercel's body limit.
     if (body.action === "confirm") {
       const { courseCode, fileName, storagePath, sizeBytes, title, author } = body;
       if (!courseCode || !fileName || !storagePath) {
@@ -126,7 +116,6 @@ module.exports = async (req, res) => {
 
       if (!insertRes.ok) {
         const t = await insertRes.text();
-        // Clean up the orphaned storage object since the DB row failed.
         await fetch(`${SUPABASE_URL}/storage/v1/object/${BUCKET}/${storagePath}`, {
           method: "DELETE",
           headers: serviceHeaders(),
