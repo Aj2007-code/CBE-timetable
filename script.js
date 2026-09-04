@@ -625,6 +625,32 @@ const MIDSEM_FULL = [
       });
       if(!res.ok) throw new Error('supabase set failed: ' + res.status);
     }
+    // ===== NEW: per-student settings (attendance mode + auto-backup toggle) =====
+    async function sbGetSettings(roll){
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/cbe_settings?roll=eq.${encodeURIComponent(roll)}&select=attendance_mode,auto_backup`, { headers: sbHeaders() });
+      if(!res.ok) throw new Error('supabase get failed: ' + res.status);
+      const rows = await res.json();
+      if(!rows[0]) return null;
+      return JSON.stringify({
+        attendance_mode: rows[0].attendance_mode === 'auto' ? 'auto' : 'conventional',
+        auto_backup: rows[0].auto_backup !== false
+      });
+    }
+    async function sbSetSettings(roll, name, valueStr){
+      let parsed = {};
+      try{ parsed = JSON.parse(valueStr) || {}; }catch(e){ /* keep defaults below */ }
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/cbe_settings`, {
+        method: 'POST',
+        headers: Object.assign(sbHeaders(), { Prefer: 'resolution=merge-duplicates' }),
+        body: JSON.stringify([{
+          roll, name,
+          attendance_mode: parsed.attendance_mode === 'auto' ? 'auto' : 'conventional',
+          auto_backup: parsed.auto_backup !== false,
+          updated_at: new Date().toISOString()
+        }])
+      });
+      if(!res.ok) throw new Error('supabase set failed: ' + res.status);
+    }
     async function sbGetCourseNames(){
       const res = await fetch(`${SUPABASE_URL}/rest/v1/cbe_course_names?id=eq.1&select=names`, { headers: sbHeaders() });
       if(!res.ok) throw new Error('supabase get failed: ' + res.status);
@@ -649,7 +675,7 @@ const MIDSEM_FULL = [
           catch(e){ return null; }
         }
         if(hasSupabase){
-          if(key.indexOf('attendance:') === 0 || key === 'course-names' || key === 'global-overrides' || key.indexOf('hss:') === 0 || key.indexOf('dayoverrides:') === 0){
+          if(key.indexOf('attendance:') === 0 || key === 'course-names' || key === 'global-overrides' || key.indexOf('hss:') === 0 || key.indexOf('dayoverrides:') === 0 || key.indexOf('settings:') === 0){
             try{
               const raw = key.indexOf('attendance:') === 0
                 ? await sbGetAttendance(key.slice('attendance:'.length))
@@ -657,6 +683,8 @@ const MIDSEM_FULL = [
                 ? await sbGetHss(key.slice('hss:'.length))
                 : key.indexOf('dayoverrides:') === 0
                 ? await sbGetDayOverrides(key.slice('dayoverrides:'.length))
+                : key.indexOf('settings:') === 0
+                ? await sbGetSettings(key.slice('settings:'.length))
                 : key === 'global-overrides'
                 ? await sbGetGlobalOverrides()
                 : await sbGetCourseNames();
@@ -676,17 +704,19 @@ const MIDSEM_FULL = [
           try{ const r = await window.storage.set(key, value, shared); return r ? { key, value, synced:true } : { key, value, synced:false }; }
           catch(e){ return { key, value, synced:false }; }
         }
-        if(hasSupabase && (key.indexOf('attendance:') === 0 || key === 'course-names' || key === 'global-overrides' || key.indexOf('hss:') === 0 || key.indexOf('dayoverrides:') === 0)){
+        if(hasSupabase && (key.indexOf('attendance:') === 0 || key === 'course-names' || key === 'global-overrides' || key.indexOf('hss:') === 0 || key.indexOf('dayoverrides:') === 0 || key.indexOf('settings:') === 0)){
           try{
             if(key.indexOf('attendance:') === 0){
               const roll = key.slice('attendance:'.length);
               const name = currentUser ? currentUser.name : '';
               await sbSetAttendance(roll, name, value);
               // Fire-and-forget snapshot — never block/fail the real save on this.
-              sbBackupAttendance(roll, name, value);
+              // Respects the user's own auto-backup ON/OFF preference.
+              if(autoBackupEnabled) sbBackupAttendance(roll, name, value);
             }
             else if(key.indexOf('hss:') === 0) await sbSetHss(key.slice('hss:'.length), value);
             else if(key.indexOf('dayoverrides:') === 0) await sbSetDayOverrides(key.slice('dayoverrides:'.length), currentUser ? currentUser.name : '', value);
+            else if(key.indexOf('settings:') === 0) await sbSetSettings(key.slice('settings:'.length), currentUser ? currentUser.name : '', value);
             else if(key === 'global-overrides') await sbSetGlobalOverrides(value, currentUser ? currentUser.roll : '');
             else await sbSetCourseNames(value);
             return { key, value, synced:true };
@@ -716,6 +746,15 @@ const MIDSEM_FULL = [
   let dayOverrides = {}; 
   let globalOverrides = {};
   let currentUser = null; 
+  // ===== NEW: per-student attendance mode + auto-backup preference =====
+  // 'conventional' = unmarked sessions count as absent (original behaviour).
+  // 'auto'         = unmarked sessions count as present; only Absent/Cancelled
+  //                  need to be tapped. Chosen once at login, changeable later
+  //                  from the Attendance tab. autoBackupEnabled gates BOTH the
+  //                  periodic snapshot timer and the on-save snapshot above.
+  let attendanceMode = 'conventional';
+  let autoBackupEnabled = true;
+  let attendanceModeChosen = false; // true once this roll has a saved preference
 
   const loginScreen = document.getElementById('loginScreen');
   const appScreen = document.getElementById('appScreen');
@@ -832,6 +871,10 @@ const MIDSEM_FULL = [
     currentUser = null;
     ADMIN_TOKEN = null;
     attendance = {};
+    attendanceMode = 'conventional';
+    autoBackupEnabled = true;
+    attendanceModeChosen = false;
+    if(autoBackupTimer){ clearInterval(autoBackupTimer); autoBackupTimer = null; }
     await Store.delete('remembered-roll', false);
     appScreen.style.display = 'none';
     loginScreen.style.display = 'flex';
@@ -882,12 +925,20 @@ const MIDSEM_FULL = [
     updateBackupCopy();
     updateBackupMeta();
     updateHssButton();
+    updateAttendanceModeUI();
     if(chatFab) chatFab.style.display = 'flex';
     announceBannerDismissed = false;
     announceLoaded = false;
     fetchAnnouncements().then(renderAnnounceBell);
-    openDayEditAnnounceModal();
     startAutoBackupTimer();
+    // Ask (once) which attendance style this roll wants before showing the
+    // rest of the login-time modal chain. Existing users who haven't picked
+    // yet get asked too, since this is the first time the feature exists.
+    if(!attendanceModeChosen){
+      openAttendanceModeModal({ blocking:true, onDone: openDayEditAnnounceModal });
+    } else {
+      openDayEditAnnounceModal();
+    }
   }
 
   const DAYEDIT_DISMISS_KEY = 'cbe-timetable:hideDayEditAnnounce';
@@ -943,6 +994,86 @@ const MIDSEM_FULL = [
   if(aboutBtn) aboutBtn.addEventListener('click', openAboutModal);
   if(aboutCloseBtn) aboutCloseBtn.addEventListener('click', closeAboutModal);
   if(aboutOverlay) aboutOverlay.addEventListener('click', (e)=>{ if(e.target === aboutOverlay) closeAboutModal(); });
+
+  // ===== NEW: attendance mode picker (Conventional vs Auto-present) =====
+  const attModeOverlay = document.getElementById('attModeModalOverlay');
+  const attModeOptionsWrap = document.getElementById('attModeOptions');
+  const attModeCancelBtn = document.getElementById('attModeCancelBtn');
+  let attModeModalBlocking = false;
+  let attModeModalOnDone = null;
+
+  function renderAttModeSelection(){
+    if(!attModeOptionsWrap) return;
+    attModeOptionsWrap.querySelectorAll('.attmode-option').forEach(el=>{
+      el.classList.toggle('selected', el.dataset.mode === attendanceMode && attendanceModeChosen);
+    });
+  }
+
+  function openAttendanceModeModal(opts){
+    opts = opts || {};
+    attModeModalBlocking = !!opts.blocking;
+    attModeModalOnDone = typeof opts.onDone === 'function' ? opts.onDone : null;
+    renderAttModeSelection();
+    if(attModeCancelBtn) attModeCancelBtn.style.display = attModeModalBlocking ? 'none' : 'block';
+    if(attModeOverlay) attModeOverlay.style.display = 'flex';
+  }
+  function closeAttendanceModeModal(){
+    if(attModeOverlay) attModeOverlay.style.display = 'none';
+    attModeModalOnDone = null;
+  }
+
+  if(attModeOptionsWrap){
+    attModeOptionsWrap.querySelectorAll('.attmode-option').forEach(el=>{
+      el.addEventListener('click', async ()=>{
+        const chosenMode = el.dataset.mode === 'auto' ? 'auto' : 'conventional';
+        const isChange = attendanceModeChosen && chosenMode !== attendanceMode;
+        if(isChange){
+          const warning = chosenMode === 'auto'
+            ? "Switching to Auto-present means every class you haven't explicitly marked will now count as PRESENT instead of absent, for your whole semester so far. Classes you've already marked Present/Absent/Cancelled are kept exactly as they are — only the unmarked ones change.\n\nContinue?"
+            : "Switching to Conventional means every class you haven't explicitly marked will now count as ABSENT instead of present, for your whole semester so far. Classes you've already marked Present/Absent/Cancelled are kept exactly as they are — only the unmarked ones change.\n\nContinue?";
+          if(!window.confirm(warning)) return;
+        }
+        attendanceMode = chosenMode;
+        await persistUserSettings(isChange ? false : true);
+        renderAttModeSelection();
+        updateAttendanceModeUI();
+        renderAll();
+        closeAttendanceModeModal();
+        const cb = attModeModalOnDone; attModeModalOnDone = null;
+        if(cb) cb();
+      });
+    });
+  }
+  if(attModeCancelBtn) attModeCancelBtn.addEventListener('click', closeAttendanceModeModal);
+  if(attModeOverlay) attModeOverlay.addEventListener('click', (e)=>{
+    if(e.target === attModeOverlay && !attModeModalBlocking) closeAttendanceModeModal();
+  });
+
+  function updateAttendanceModeUI(){
+    const lbl = document.getElementById('attModeCurrentLabel');
+    const desc = document.getElementById('attModeCurrentDesc');
+    if(lbl) lbl.textContent = attendanceMode === 'auto' ? 'Auto-present' : 'Conventional';
+    if(desc) desc.textContent = attendanceMode === 'auto'
+      ? "Every class counts as present unless you tap it Absent or Cancelled."
+      : "Every class you don't tap counts as absent — mark Present/Absent/Cancelled yourself.";
+    const toggle = document.getElementById('autoBackupToggle');
+    if(toggle) toggle.checked = !!autoBackupEnabled;
+    const legend = document.getElementById('footerLegend');
+    if(legend) legend.textContent = attendanceMode === 'auto'
+      ? 'Present by default · Absent ✕ · Cancelled ⊘'
+      : 'Present ✓ · Absent ✕ · Cancelled ⊘';
+  }
+
+  const attModeChangeBtn = document.getElementById('attModeChangeBtn');
+  if(attModeChangeBtn) attModeChangeBtn.addEventListener('click', ()=> openAttendanceModeModal({ blocking:false }));
+
+  const autoBackupToggle = document.getElementById('autoBackupToggle');
+  if(autoBackupToggle) autoBackupToggle.addEventListener('change', async (e)=>{
+    autoBackupEnabled = !!e.target.checked;
+    await persistUserSettings(true);
+    startAutoBackupTimer();
+    flashSaveToast(true, autoBackupEnabled ? 'Auto-backup turned on' : 'Auto-backup turned off');
+  });
 
   const hssOverlay = document.getElementById('hssModalOverlay');
   const hssOptionsWrap = document.getElementById('hssOptions');
@@ -1348,8 +1479,10 @@ const MIDSEM_FULL = [
   function startAutoBackupTimer(){
     if(autoBackupTimer) clearInterval(autoBackupTimer);
     if(!Store.isCloud) return;
+    if(!autoBackupEnabled) return;
     autoBackupTimer = setInterval(()=>{
       if(!currentUser) return;
+      if(!autoBackupEnabled) return;
       Store.set(attKey(), JSON.stringify(attendance), true).catch(()=>{});
     }, 10 * 60 * 1000);
   }
@@ -1420,12 +1553,16 @@ const MIDSEM_FULL = [
 
   function hssKey(){ return 'hss:' + currentUser.roll; }
   function dayOverridesKey(){ return 'dayoverrides:' + currentUser.roll; }
+  function settingsKey(){ return 'settings:' + currentUser.roll; }
 
   async function loadUserData(){
     attendance = {};
     courseNames = {};
     hssCode = null;
     dayOverrides = {};
+    attendanceMode = 'conventional';
+    autoBackupEnabled = true;
+    attendanceModeChosen = false;
     // Only true if the attendance fetch actually completed (success OR a
     // confirmed "no records yet" — never on a network/timeout failure).
     // This guards against ever writing an empty `attendance` back to
@@ -1452,6 +1589,15 @@ const MIDSEM_FULL = [
       const g = await Store.get('global-overrides', true);
       if(g && g.value) globalOverrides = JSON.parse(g.value);
     }catch(e){ /* no admin reschedules yet — fine */ }
+    try{
+      const st = await Store.get(settingsKey(), true);
+      if(st && st.value){
+        const parsed = JSON.parse(st.value);
+        if(parsed && (parsed.attendance_mode === 'auto' || parsed.attendance_mode === 'conventional')) attendanceMode = parsed.attendance_mode;
+        if(parsed && typeof parsed.auto_backup === 'boolean') autoBackupEnabled = parsed.auto_backup;
+        attendanceModeChosen = true;
+      }
+    }catch(e){ /* never chosen yet — fine, stays unset and the login modal will ask */ }
     rebuildPersonalSchedule();
 
     const attChanged = migrateAttendanceCodes();
@@ -1469,6 +1615,22 @@ const MIDSEM_FULL = [
       if(res && res.synced === false) flashSaveToast(true, 'Saved locally — will sync when online');
       else flashSaveToast(true, 'HSS elective saved');
     }catch(e){ console.warn('hss save failed', e); flashSaveToast(false); }
+  }
+
+  // Saves attendanceMode + autoBackupEnabled together as one JSON blob.
+  // Silent by default (no toast) since this fires from the mandatory
+  // first-login modal too, where a save toast would be noisy/confusing.
+  async function persistUserSettings(silent){
+    if(!currentUser) return;
+    try{
+      const payload = JSON.stringify({ attendance_mode: attendanceMode, auto_backup: autoBackupEnabled });
+      const res = await Store.set(settingsKey(), payload, true);
+      attendanceModeChosen = true;
+      if(!silent){
+        if(res && res.synced === false) flashSaveToast(true, 'Saved locally — will sync when online');
+        else flashSaveToast(true, 'Settings saved');
+      }
+    }catch(e){ console.warn('settings save failed', e); if(!silent) flashSaveToast(false); }
   }
 
   let announcements = [];
@@ -2009,6 +2171,27 @@ const MIDSEM_FULL = [
 
   function markKeyFor(dateIso, s){ return dateIso+"|"+s.code+"|"+s.start; }
 
+  // Shared mark-button markup for both the Now timeline and the Attendance
+  // day view. In 'conventional' mode all three buttons show (unmarked =
+  // absent). In 'auto' mode the Present button is hidden — presence is the
+  // default — leaving just Absent/Cancelled, per the auto-present feature.
+  function markGroupHtml(key, status, disabled){
+    const dis = disabled ? 'disabled' : '';
+    const pBtn = `<button class="mark-btn p ${status==='p'?'active':''}" ${dis} data-key="${key}" data-val="p" title="Present">✓</button>`;
+    const aBtn = `<button class="mark-btn a ${status==='a'?'active':''}" ${dis} data-key="${key}" data-val="a" title="Absent">✕</button>`;
+    const cBtn = `<button class="mark-btn c ${status==='c'?'active':''}" ${dis} data-key="${key}" data-val="c" title="Cancelled">⊘</button>`;
+    return `<div class="mark-group">${attendanceMode === 'auto' ? '' : pBtn}${aBtn}${cBtn}</div>`;
+  }
+
+  // Shared "this session isn't marked yet" note, shown only for sessions
+  // that have started but have no explicit status — reflects whichever way
+  // it will actually be counted by computeStats().
+  function unmarkedNoteHtml(){
+    return attendanceMode === 'auto'
+      ? `<div class="cc-status auto-present">counted as present — tap ✕ if you were absent</div>`
+      : `<div class="cc-status auto-absent">counted as absent — tap ✓ if you were there</div>`;
+  }
+
   function sessionHasStarted(d, s){
     const dayStart = startOfDay(d).getTime();
     const todayStart = startOfDay(now).getTime();
@@ -2059,7 +2242,7 @@ const MIDSEM_FULL = [
 
       let statusLine = "";
       if(isOngoing) statusLine = `<div class="cc-status live">● in progress</div>`;
-      else if(isDone) statusLine = `<div class="cc-status">finished</div>`;
+      else if(isDone) statusLine = !status && canMark ? unmarkedNoteHtml() : `<div class="cc-status">finished</div>`;
       else if(dayIsOver) statusLine = `<div class="cc-status">Locked · can still edit in Attendance tab</div>`;
       else statusLine = `<div class="cc-status">upcoming</div>`;
 
@@ -2076,11 +2259,7 @@ const MIDSEM_FULL = [
           <div class="cc-meta">${fmtHM(s.start)}–${fmtHM(s.end)} · ${s.room}</div>
           ${statusLine}
         </div>
-        <div class="mark-group">
-          <button class="mark-btn p ${status==='p'?'active':''}" ${canMark?'':'disabled'} data-key="${key}" data-val="p" title="Present">✓</button>
-          <button class="mark-btn a ${status==='a'?'active':''}" ${canMark?'':'disabled'} data-key="${key}" data-val="a" title="Absent">✕</button>
-          <button class="mark-btn c ${status==='c'?'active':''}" ${canMark?'':'disabled'} data-key="${key}" data-val="c" title="Cancelled">⊘</button>
-        </div>
+        ${markGroupHtml(key, status, !canMark)}
       </div>`;
     }).join("");
 
@@ -2143,7 +2322,10 @@ const MIDSEM_FULL = [
         scheduleForDate(d).forEach(s=>{
           if(!sessionHasStarted(d, s)) return; 
           const key = markKeyFor(iso, s);
-          const val = attendance[key] || 'a'; 
+          // Conventional mode: an unmarked-but-started session counts as
+          // absent by default. Auto-present mode: it counts as present by
+          // default — the student only has to tap Absent/Cancelled.
+          const val = attendance[key] || (attendanceMode === 'auto' ? 'p' : 'a'); 
           if(val==='c') return;
           const statKey = statKeyForSession(s.code, s.type);
           // Only fold this session into the overall total/present count if it
@@ -2999,15 +3181,11 @@ const MIDSEM_FULL = [
         <div class="cc-body">
           <div class="cc-top"><span class="cc-code">${s.code}</span>${nameSpan(s,'cc-name')}<span class="cc-tag ${s.type}">${s.tag || s.type}</span>${isExtra ? '<span class="cc-tag added">added</span>' : ''}${isGlobalExtra ? '<span class="cc-tag admin-added">added by admin</span>' : ''}</div>
           <div class="cc-meta">${fmtHM(s.start)}–${fmtHM(s.end)} · ${s.room}</div>
-          ${locked ? `<div class="cc-status">not started yet</div>` : (!status ? `<div class="cc-status auto-absent">counted as absent — tap ✓ if you were there</div>` : '')}
+          ${locked ? `<div class="cc-status">not started yet</div>` : (!status ? unmarkedNoteHtml() : '')}
           ${removeBtn}
           ${adminBtns}
         </div>
-        <div class="mark-group">
-          <button class="mark-btn p ${status==='p'?'active':''}" ${locked?'disabled':''} data-key="${key}" data-val="p" title="Present">✓</button>
-          <button class="mark-btn a ${status==='a'?'active':''}" ${locked?'disabled':''} data-key="${key}" data-val="a" title="Absent">✕</button>
-          <button class="mark-btn c ${status==='c'?'active':''}" ${locked?'disabled':''} data-key="${key}" data-val="c" title="Cancelled">⊘</button>
-        </div>
+        ${markGroupHtml(key, status, locked)}
       </div>`;
     }).join("") + editControls;
 
@@ -3134,4 +3312,32 @@ where a.id not in (
     from cbe_attendance_backups
   ) t where t.rn <= 20
 );
+*/
+
+/* ============================================================
+   SETUP REQUIRED — run this once in Supabase SQL Editor to
+   enable the new per-student settings (attendance mode + the
+   auto-backup ON/OFF toggle). One row per roll number, upserted
+   via Prefer: resolution=merge-duplicates, same as cbe_hss etc.
+   ============================================================
+
+create table if not exists cbe_settings (
+  roll text primary key,
+  name text,
+  attendance_mode text not null default 'conventional'
+    check (attendance_mode in ('conventional','auto')),
+  auto_backup boolean not null default true,
+  updated_at timestamptz not null default now()
+);
+
+alter table cbe_settings enable row level security;
+
+-- Mirror whatever policy you already use on cbe_hss/cbe_attendance for the
+-- anon key. Upserts need insert + select + update:
+create policy "anon insert settings" on cbe_settings
+  for insert to anon with check (true);
+create policy "anon read settings" on cbe_settings
+  for select to anon using (true);
+create policy "anon update settings" on cbe_settings
+  for update to anon using (true);
 */

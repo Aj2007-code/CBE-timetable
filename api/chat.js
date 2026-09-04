@@ -259,7 +259,7 @@ function statGroupsForActiveCourses(hssCode, roll) {
   return groups;
 }
 
-function computeStats(weekSchedule, globalOverrides, dayOverrides, attendanceMarks, hssCode, roll, now) {
+function computeStats(weekSchedule, globalOverrides, dayOverrides, attendanceMarks, hssCode, roll, now, attendanceMode) {
   const stats = {};
   const activeKeys = new Set(statGroupsForActiveCourses(hssCode, roll).map(g => g.key));
   activeKeys.forEach(k => stats[k] = { present: 0, total: 0 });
@@ -273,7 +273,11 @@ function computeStats(weekSchedule, globalOverrides, dayOverrides, attendanceMar
       scheduleForDate(weekSchedule, globalOverrides, dayOverrides, d, roll).forEach(s => {
         if (!sessionHasStarted(d, s, now)) return;
         const key = markKeyFor(iso, s);
-        const val = attendanceMarks[key] || 'a';
+        // Same fix as script.js: which way an unmarked session counts
+        // depends on the student's own attendance-mode preference —
+        // 'auto' (auto-present) defaults to present, everything else
+        // (conventional) defaults to absent.
+        const val = attendanceMarks[key] || (attendanceMode === 'auto' ? 'p' : 'a');
         if (val === 'c') return;
         const statKey = statKeyForSession(s.code, s.type);
         // Same fix as script.js: ignore sessions that don't belong to a
@@ -321,7 +325,7 @@ async function fetchSiteContext(rollNumber) {
   const now = getISTNow();
   const cutoffISO = new Date(now.getTime() - ANNOUNCE_TTL_HOURS * 3600 * 1000).toISOString();
 
-  const [hssRow, attRow, ovRow, govRow, namesRow, announceRows, pyqFiles, bookFiles] = await Promise.all([
+  const [hssRow, attRow, ovRow, govRow, namesRow, announceRows, pyqFiles, bookFiles, settingsRow] = await Promise.all([
     roll && supabase ? safeSingle(supabase.from('cbe_hss').select('code').eq('roll', roll).maybeSingle()) : null,
     roll && supabase ? safeSingle(supabase.from('cbe_attendance').select('attendance').eq('roll', roll).maybeSingle()) : null,
     roll && supabase ? safeSingle(supabase.from('cbe_day_overrides').select('overrides').eq('roll', roll).maybeSingle()) : null,
@@ -330,6 +334,7 @@ async function fetchSiteContext(rollNumber) {
     supabase ? safeSingle(supabase.from('cbe_announcements').select('id,message,created_at').gte('created_at', cutoffISO).order('created_at', { ascending: false }).limit(5)) : null,
     supabase ? safeSingle(supabase.from('cbe_pyq_files').select('course_code, file_name').order('course_code').limit(300)) : null,
     supabase ? safeSingle(supabase.from('cbe_reference_books').select('course_code, title, author, file_name').order('course_code').limit(300)) : null,
+    roll && supabase ? safeSingle(supabase.from('cbe_settings').select('attendance_mode').eq('roll', roll).maybeSingle()) : null,
   ]);
 
   const courseNames = Object.assign({}, DEFAULT_COURSE_NAMES, (namesRow && namesRow.names) || {});
@@ -340,6 +345,7 @@ async function fetchSiteContext(rollNumber) {
     const hssCode = hssRow && hssRow.code ? hssRow.code : null;
     const attendanceMarks = (attRow && attRow.attendance) || {};
     const dayOverrides = (ovRow && ovRow.overrides) || {};
+    const attendanceMode = (settingsRow && settingsRow.attendance_mode === 'auto') ? 'auto' : 'conventional';
     const weekSchedule = buildPersonalWeekSchedule(hssCode, roll);
 
     // Today's sessions with live status.
@@ -391,7 +397,7 @@ async function fetchSiteContext(rollNumber) {
     }
 
     // Attendance stats.
-    const { stats, totalPresent, totalMarked } = computeStats(weekSchedule, globalOverrides, dayOverrides, attendanceMarks, hssCode, roll, now);
+    const { stats, totalPresent, totalMarked } = computeStats(weekSchedule, globalOverrides, dayOverrides, attendanceMarks, hssCode, roll, now, attendanceMode);
     const overallPct = totalMarked ? Math.round((totalPresent / totalMarked) * 100) : null;
     const perCourse = statGroupsForActiveCourses(hssCode, roll).map(g => {
       const st = stats[g.key] || { present: 0, total: 0 };
@@ -412,7 +418,7 @@ async function fetchSiteContext(rollNumber) {
     result.todaysSessions = todaysSessions;
     result.nextClass = nextClass;
     result.upcomingDays = upcomingDays;
-    result.attendance = { overallPct, totalPresent, totalMarked, perCourse };
+    result.attendance = { overallPct, totalPresent, totalMarked, perCourse, mode: attendanceMode };
   }
 
   // Group PYQ/reference-book files by course so the assistant can answer
@@ -498,6 +504,7 @@ function formatSiteContext(site) {
 
     const att = site.attendance;
     if (att.totalMarked) {
+      lines.push(`Attendance mode: ${att.mode === 'auto' ? 'Auto-present (unmarked sessions count as PRESENT by default; the student only marks Absent/Cancelled)' : 'Conventional (unmarked sessions count as ABSENT by default; the student marks Present/Absent/Cancelled)'}.`);
       lines.push(`Overall attendance: ${att.overallPct}% (${att.totalPresent}/${att.totalMarked} sessions held so far, since semester start 28 Jul 2026).`);
       lines.push(`Per-course attendance:`);
       att.perCourse.forEach(c => {

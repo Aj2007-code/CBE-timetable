@@ -155,6 +155,25 @@
     </div>
     <div id="attendanceDayWrap"></div>
 
+    <div class="section-label">Attendance settings</div>
+    <div class="backup-box" id="attSettingsBox">
+      <div class="attmode-current-row">
+        <div class="attmode-current-text">Attendance mode: <b id="attModeCurrentLabel">Conventional</b></div>
+        <button class="backup-btn ghost" id="attModeChangeBtn">Change</button>
+      </div>
+      <div class="attmode-current-desc" id="attModeCurrentDesc"></div>
+      <div class="autobackup-row">
+        <label class="toggle-switch">
+          <input type="checkbox" id="autoBackupToggle" checked />
+          <span class="toggle-slider"></span>
+        </label>
+        <div class="autobackup-text">
+          <div class="autobackup-title">Automatic cloud backups</div>
+          <div class="autobackup-sub" id="autoBackupSub">Takes a safety snapshot of your attendance in the cloud every few minutes and whenever it changes, so it can be recovered if something ever goes wrong.</div>
+        </div>
+      </div>
+    </div>
+
     <div class="section-label">Backup your data</div>
     <div class="backup-box">
       <div class="backup-text">This is saved to your browser only. Clearing browser data, going private/incognito, or opening the site on a different phone or laptop will not have it — download a backup regularly, it takes two seconds.</div>
@@ -207,7 +226,7 @@
   </div>
 
   <footer>
-      Present ✓ · Absent ✕ · Cancelled ⊘<br>
+      <span id="footerLegend">Present ✓ · Absent ✕ · Cancelled ⊘</span><br>
     <b>Attendance is saved to your personal profile.</b>
     <div class="made-by">Made by ~Aarsh</div>
   </footer>
@@ -215,6 +234,25 @@
 </div>
 
 <div class="save-toast" id="saveToast">Saved</div>
+
+<div class="modal-overlay" id="attModeModalOverlay" style="display:none;">
+  <div class="modal-card">
+    <div class="modal-title">Choose your attendance style</div>
+    <div class="modal-sub">This decides how sessions you don't tap on are counted. You can change it later from the <b>Attendance</b> tab, but switching will re-apply to your whole semester's record — so pick the one that matches how you actually want to track attendance.</div>
+    <div class="attmode-options" id="attModeOptions">
+      <div class="attmode-option" data-mode="conventional">
+        <div class="attmode-top"><span class="attmode-icon">✓</span><span class="attmode-name">Conventional</span></div>
+        <div class="attmode-desc">Mark every class yourself — Present, Absent, or Cancelled. Anything you forget to mark counts as <b>absent</b>.</div>
+      </div>
+      <div class="attmode-option" data-mode="auto">
+        <div class="attmode-top"><span class="attmode-icon">⚡</span><span class="attmode-name">Auto-present</span></div>
+        <div class="attmode-desc">Every class is assumed <b>present</b> by default — you only need to tap a class if you were <b>Absent</b> or it was <b>Cancelled</b>.</div>
+      </div>
+    </div>
+    <div class="attmode-note">You can switch modes anytime from the Attendance tab.</div>
+    <button class="modal-skip" id="attModeCancelBtn" style="display:none;">Cancel</button>
+  </div>
+</div>
 
 <div class="modal-overlay" id="hssModalOverlay" style="display:none;">
   <div class="modal-card">
@@ -297,7 +335,7 @@
       </div>
       <div class="feature-item">
         <span class="feature-tag at">✓</span>
-        <span class="info-text"><b>Attendance</b> — mark Present, Absent, or Cancelled from the <b>Now</b> or <b>Week</b> view with one tap, then track your overall and subject-wise percentage in the <b>Attendance</b> tab.</span>
+        <span class="info-text"><b>Attendance</b> — mark Present, Absent, or Cancelled from the <b>Now</b> or <b>Week</b> view with one tap, then track your overall and subject-wise percentage in the <b>Attendance</b> tab. Choose your attendance style (Conventional or Auto-present) at login, or change it anytime from the <b>Attendance</b> tab — that's also where you can turn automatic cloud backups on or off.</span>
       </div>
       <div class="feature-item">
         <span class="feature-tag ed">ED</span>

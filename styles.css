@@ -456,6 +456,7 @@
   .cc-status{font-size:11px; font-family:var(--mono); margin-top:4px;}
   .cc-status.live{color:var(--teal);}
   .cc-status.auto-absent{color:var(--rose);}
+  .cc-status.auto-present{color:var(--green);}
 
   .mark-group{display:flex; gap:5px; flex-shrink:0;}
   .mark-btn{
@@ -708,6 +709,31 @@
   .backup-meta{font-family:var(--mono); font-size:11px; color:var(--text-faint); margin-top:10px;}
   .backup-meta.due{color:var(--amber);}
 
+  /* ===== Attendance mode + auto-backup settings box (Attendance tab) ===== */
+  .attmode-current-row{display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; margin-bottom:6px;}
+  .attmode-current-text{font-size:12.5px; color:var(--text-dim);}
+  .attmode-current-text b{color:var(--text);}
+  .attmode-current-desc{font-size:11.5px; color:var(--text-faint); line-height:1.6; margin-bottom:14px;}
+
+  .autobackup-row{display:flex; align-items:flex-start; gap:12px; padding-top:14px; border-top:1px solid var(--border-soft);}
+  .autobackup-text{flex:1;}
+  .autobackup-title{font-size:12.5px; font-weight:700; color:var(--text);}
+  .autobackup-sub{font-size:11px; color:var(--text-faint); line-height:1.55; margin-top:3px;}
+
+  .toggle-switch{position:relative; display:inline-block; width:40px; height:22px; flex-shrink:0; margin-top:2px;}
+  .toggle-switch input{opacity:0; width:0; height:0; position:absolute;}
+  .toggle-slider{
+    position:absolute; cursor:pointer; inset:0; background:var(--surface-3); border:1px solid var(--border);
+    border-radius:999px; transition:.15s ease;
+  }
+  .toggle-slider:before{
+    content:""; position:absolute; height:16px; width:16px; left:2px; top:2px; background:var(--text-dim);
+    border-radius:50%; transition:.15s ease;
+  }
+  .toggle-switch input:checked + .toggle-slider{background:var(--teal-dim); border-color:var(--teal);}
+  .toggle-switch input:checked + .toggle-slider:before{transform:translateX(18px); background:var(--teal);}
+  .toggle-switch input:focus-visible + .toggle-slider{outline:2px solid var(--teal); outline-offset:2px;}
+
   .modal-overlay{
     position:fixed; inset:0; background:rgba(4,6,12,0.72); display:flex; align-items:center; justify-content:center;
     padding:20px; z-index:60; backdrop-filter:blur(2px);
@@ -730,6 +756,19 @@
   .hss-option .hop-code{font-family:var(--mono); font-weight:800; font-size:14px; color:var(--violet);}
   .hss-option .hop-slot{font-family:var(--mono); font-size:10.5px; color:var(--text-faint);}
   .hss-option .hop-meta{font-size:11.5px; color:var(--text-dim); margin-top:6px; line-height:1.6; font-family:var(--mono);}
+
+  .attmode-options{display:flex; flex-direction:column; gap:10px; margin-bottom:4px;}
+  .attmode-option{
+    border:1px solid var(--border); background:var(--surface-2); border-radius:13px; padding:14px 15px;
+    cursor:pointer; transition:border-color .15s ease, background .15s ease;
+  }
+  .attmode-option:hover{border-color:var(--green); background:var(--surface-3);}
+  .attmode-option.selected{border-color:var(--green); background:var(--surface-3); box-shadow:0 0 0 1px var(--green);}
+  .attmode-top{display:flex; align-items:center; gap:8px; margin-bottom:6px;}
+  .attmode-icon{font-size:15px; line-height:1;}
+  .attmode-name{font-family:var(--mono); font-weight:800; font-size:13.5px;}
+  .attmode-desc{font-size:11.5px; color:var(--text-dim); line-height:1.6;}
+  .attmode-note{font-size:11px; color:var(--text-faint); line-height:1.6; margin-top:2px;}
   .modal-skip{
     width:100%; margin-top:14px; padding:11px; border-radius:10px; border:1px solid var(--border);
     background:transparent; color:var(--text-faint); font-family:var(--mono); font-size:11.5px; cursor:pointer;
