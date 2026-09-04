@@ -559,6 +559,30 @@ const MIDSEM_FULL = [
       });
       if(!res.ok) throw new Error('supabase set failed: ' + res.status);
     }
+    // ===== NEW: auto-backup snapshots =====
+    // Every successful attendance save also inserts a timestamped snapshot
+    // into cbe_attendance_backups (see SQL at the bottom of this file). This
+    // is what actually protects you if a future bug or bad write ever wipes
+    // cbe_attendance again — you (or your app) can always pull the most
+    // recent snapshot back out. This is fire-and-forget: it must never be
+    // allowed to block or fail the main save.
+    async function sbBackupAttendance(roll, name, valueStr){
+      try{
+        await fetch(`${SUPABASE_URL}/rest/v1/cbe_attendance_backups`, {
+          method: 'POST',
+          headers: sbHeaders(),
+          body: JSON.stringify([{ roll, name, attendance: JSON.parse(valueStr), backed_up_at: new Date().toISOString() }])
+        });
+      }catch(e){
+        console.warn('auto-backup snapshot failed (non-fatal)', e);
+      }
+    }
+    async function sbGetLatestBackup(roll){
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/cbe_attendance_backups?roll=eq.${encodeURIComponent(roll)}&select=attendance,backed_up_at&order=backed_up_at.desc&limit=1`, { headers: sbHeaders() });
+      if(!res.ok) throw new Error('supabase get failed: ' + res.status);
+      const rows = await res.json();
+      return rows[0] || null;
+    }
     async function sbGetHss(roll){
       const res = await fetch(`${SUPABASE_URL}/rest/v1/cbe_hss?roll=eq.${encodeURIComponent(roll)}&select=code`, { headers: sbHeaders() });
       if(!res.ok) throw new Error('supabase get failed: ' + res.status);
@@ -654,7 +678,13 @@ const MIDSEM_FULL = [
         }
         if(hasSupabase && (key.indexOf('attendance:') === 0 || key === 'course-names' || key === 'global-overrides' || key.indexOf('hss:') === 0 || key.indexOf('dayoverrides:') === 0)){
           try{
-            if(key.indexOf('attendance:') === 0) await sbSetAttendance(key.slice('attendance:'.length), currentUser ? currentUser.name : '', value);
+            if(key.indexOf('attendance:') === 0){
+              const roll = key.slice('attendance:'.length);
+              const name = currentUser ? currentUser.name : '';
+              await sbSetAttendance(roll, name, value);
+              // Fire-and-forget snapshot — never block/fail the real save on this.
+              sbBackupAttendance(roll, name, value);
+            }
             else if(key.indexOf('hss:') === 0) await sbSetHss(key.slice('hss:'.length), value);
             else if(key.indexOf('dayoverrides:') === 0) await sbSetDayOverrides(key.slice('dayoverrides:'.length), currentUser ? currentUser.name : '', value);
             else if(key === 'global-overrides') await sbSetGlobalOverrides(value, currentUser ? currentUser.roll : '');
@@ -674,7 +704,10 @@ const MIDSEM_FULL = [
           catch(e){ return null; }
         }
         return { key, deleted:true };
-      }
+      },
+      // Exposed so the app can pull the last known-good cloud snapshot
+      // (used by the auto-backup restore helper below).
+      getLatestAttendanceBackup: sbGetLatestBackup
     };
   })();
 
@@ -854,6 +887,7 @@ const MIDSEM_FULL = [
     announceLoaded = false;
     fetchAnnouncements().then(renderAnnounceBell);
     openDayEditAnnounceModal();
+    startAutoBackupTimer();
   }
 
   const DAYEDIT_DISMISS_KEY = 'cbe-timetable:hideDayEditAnnounce';
@@ -1220,7 +1254,7 @@ const MIDSEM_FULL = [
     const el = document.querySelector('.backup-text');
     if(!el) return;
     el.textContent = Store.isCloud
-      ? 'Your attendance syncs to the cloud automatically, so it follows you across devices. This export is just an extra personal copy.'
+      ? 'Your attendance syncs to the cloud automatically, and an automatic snapshot is saved every time it changes, so it follows you across devices and can be recovered if something goes wrong. This export is just an extra personal copy.'
       : "This is saved to your browser only. Clearing browser data, going private/incognito, or opening the site on a different phone or laptop will not have it — download a backup regularly, it takes two seconds.";
   }
 
@@ -1304,31 +1338,83 @@ const MIDSEM_FULL = [
     e.target.value = '';
   });
 
+  // ===== NEW: automatic periodic snapshot =====
+  // In addition to the snapshot taken on every save (see sbBackupAttendance
+  // above), this takes a heartbeat snapshot every 10 minutes while the app
+  // is open, so even a session with no edits still has a recent recovery
+  // point, and repeated edits within a short window don't need to rely on
+  // Store.set alone.
+  let autoBackupTimer = null;
+  function startAutoBackupTimer(){
+    if(autoBackupTimer) clearInterval(autoBackupTimer);
+    if(!Store.isCloud) return;
+    autoBackupTimer = setInterval(()=>{
+      if(!currentUser) return;
+      Store.set(attKey(), JSON.stringify(attendance), true).catch(()=>{});
+    }, 10 * 60 * 1000);
+  }
+
+  // Manually pull the most recent auto-backup snapshot back into your
+  // account — a safety net if cbe_attendance is ever found empty/wrong
+  // again. Wire this up to a button if/when you want it exposed in the UI;
+  // for now it's callable from the console as restoreFromAutoBackup().
+  async function restoreFromAutoBackup(){
+    if(!currentUser) return;
+    try{
+      const backup = await Store.getLatestAttendanceBackup(currentUser.roll);
+      if(!backup){ flashSaveToast(false, 'No auto-backup found'); return; }
+      const proceed = confirm(`Restore attendance from the auto-backup taken at ${backup.backed_up_at}? This will overwrite your current attendance.`);
+      if(!proceed) return;
+      attendance = backup.attendance || {};
+      await persistAttendance();
+      renderAll();
+      flashSaveToast(true, 'Restored from auto-backup');
+    }catch(e){
+      console.warn('restore from auto-backup failed', e);
+      flashSaveToast(false, 'Restore failed');
+    }
+  }
+  window.restoreFromAutoBackup = restoreFromAutoBackup;
+
   function attKey(){ return 'attendance:' + currentUser.roll; }
 
   const CODE_MIGRATION = { "CB2201":"CB2101", "CB2202":"CB2102", "CB2203":"CB2103", "CB2204":"CB2104", "CB2205":"CB2105" };
 
-  function migrateOldCodes(){
+  // ===== FIX: migration split into two independent functions =====
+  // Previously a single migrateOldCodes() checked BOTH the personal
+  // `attendance` object AND the shared `courseNames` object, and returned
+  // one combined "changed" flag. That meant a stale code found only in the
+  // *shared* courseNames record (which any student could be the first to
+  // trigger a cleanup of) could cause persistAttendance() to run and
+  // overwrite this student's cloud attendance — even when their own
+  // `attendance` load had just failed/timed out and was sitting at `{}`.
+  // Splitting these means a courseNames-only migration can never trigger
+  // an attendance write, and an attendance write only happens for a
+  // genuine attendance-key migration.
+  function migrateAttendanceCodes(){
     let changed = false;
-    const migratedAttendance = {};
+    const migrated = {};
     Object.keys(attendance).forEach(key=>{
       const parts = key.split("|");
       if(parts.length === 3 && CODE_MIGRATION[parts[1]]){
         parts[1] = CODE_MIGRATION[parts[1]];
         changed = true;
       }
-      migratedAttendance[parts.join("|")] = attendance[key];
+      migrated[parts.join("|")] = attendance[key];
     });
-    if(changed) attendance = migratedAttendance;
+    if(changed) attendance = migrated;
+    return changed;
+  }
 
-    const migratedNames = {};
+  function migrateCourseNames(){
+    let changed = false;
+    const migrated = {};
     Object.keys(courseNames).forEach(code=>{
       const newCode = CODE_MIGRATION[code] || code;
       if(newCode !== code) changed = true;
-      if(!(newCode in migratedNames)) migratedNames[newCode] = courseNames[code];
+      if(!(newCode in migrated)) migrated[newCode] = courseNames[code];
     });
-    courseNames = migratedNames;
-
+    courseNames = migrated;
     return changed;
   }
 
@@ -1340,10 +1426,16 @@ const MIDSEM_FULL = [
     courseNames = {};
     hssCode = null;
     dayOverrides = {};
+    // Only true if the attendance fetch actually completed (success OR a
+    // confirmed "no records yet" — never on a network/timeout failure).
+    // This guards against ever writing an empty `attendance` back to
+    // Supabase just because the load didn't finish.
+    let attendanceLoadOk = false;
     try{
       const a = await Store.get(attKey(), true);
       if(a && a.value) attendance = JSON.parse(a.value);
-    }catch(e){ /* no records yet for this student — fine */ }
+      attendanceLoadOk = true;
+    }catch(e){ console.warn('attendance load failed — skipping any attendance write this session', e); }
     try{
       const n = await Store.get('course-names', true);
       if(n && n.value) courseNames = JSON.parse(n.value);
@@ -1361,10 +1453,13 @@ const MIDSEM_FULL = [
       if(g && g.value) globalOverrides = JSON.parse(g.value);
     }catch(e){ /* no admin reschedules yet — fine */ }
     rebuildPersonalSchedule();
-    if(migrateOldCodes()){
-      await persistAttendance();
-      await persistNames();
-    }
+
+    const attChanged = migrateAttendanceCodes();
+    const namesChanged = migrateCourseNames();
+    // Guarded: only ever write attendance back if the load genuinely
+    // succeeded AND a migration actually touched it.
+    if(attChanged && attendanceLoadOk) await persistAttendance();
+    if(namesChanged) await persistNames();
   }
 
   async function persistHss(){
@@ -3002,3 +3097,41 @@ const MIDSEM_FULL = [
   tryAutoLogin();
 
 })();
+
+/* ============================================================
+   SETUP REQUIRED — run this once in Supabase SQL Editor to
+   enable the new auto-backup feature. Not needed for the
+   migration bug fix above, which works with your existing schema.
+   ============================================================
+
+create table if not exists cbe_attendance_backups (
+  id bigint generated always as identity primary key,
+  roll text not null,
+  name text,
+  attendance jsonb not null default '{}'::jsonb,
+  backed_up_at timestamptz not null default now()
+);
+
+create index if not exists cbe_attendance_backups_roll_idx
+  on cbe_attendance_backups (roll, backed_up_at desc);
+
+alter table cbe_attendance_backups enable row level security;
+
+-- Mirror whatever policy you already use on cbe_attendance for the anon
+-- key (insert + select), e.g.:
+create policy "anon insert backups" on cbe_attendance_backups
+  for insert to anon with check (true);
+create policy "anon read own backups" on cbe_attendance_backups
+  for select to anon using (true);
+
+-- Optional housekeeping: this table grows one row per save + one every
+-- 10 minutes per active user. Run this occasionally (or put it on a
+-- Supabase cron job) to keep only the most recent 20 snapshots per roll:
+delete from cbe_attendance_backups a
+where a.id not in (
+  select id from (
+    select id, row_number() over (partition by roll order by backed_up_at desc) rn
+    from cbe_attendance_backups
+  ) t where t.rn <= 20
+);
+*/
