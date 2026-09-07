@@ -259,9 +259,9 @@
   const MIDSEM_HSS_DATE = "2026-09-22";
   const MIDSEM_HSS_DAY = "Tuesday";
 
-
-const MIDSEM_HS_DATE = "2026-09-22";
-const MIDSEM_HS_DAY = "Tuesday";
+  // MBA paper (HS2101) — applies only to MBA-roll (2503CB..) students, treated like an HSS elective
+  const MIDSEM_MBA_DATE = "2026-09-20";
+  const MIDSEM_MBA_DAY = "Sunday";
 
 const MIDSEM_FULL = [
 
@@ -296,9 +296,9 @@ const MIDSEM_FULL = [
     date: "2026-09-23",
     day: "Wednesday",
 
-    morning: "CB6104, CE2102, CB2102, CH4103, CH5102, CS2102, EC2102, EP2102, HS2105/MA2102, MA1101, MA4109, MA5103, ME2102, MM2102, PH4103",
+    morning: "CB6104, CE2102, CH2104/CB2102, CH4103, CH5102, CS2102, EC2102, EP2102, HS2105/MA2102, MA1101, MA4109, MA5103, ME2102, MM2102, PH4103",
 
-    evening: "CB3102, CE3102, CE5106, CE6116/CE4101, CH3102, CH4108, CH7103, CS3102, EC3102, EC5101, EE3102, EE5101, EP3102, HS3111, HS7106, MA3102, MC5101/CS5101, ME3102, ME5103, ME6104, MH5101, MM3102, MM5102"
+    evening: "CB3102, CB4103, CE3102, CE5106, CE6116/CE4101, CH3102, CH4108, CH7103, CS3102, EC3102, EC5101, EE3102, EE5101, EP3102, HS3111, HS7106, MA3102, MC5101/CS5101, ME3102, ME5103, ME6104, MH5101, MM3102, MM5102"
   },
 
   {
@@ -323,7 +323,7 @@ const MIDSEM_FULL = [
     date: "2026-09-26",
     day: "Saturday",
 
-    morning: "CE2104, CB2104, CH4105, CS2104, EE2101, EP2104, HS1101, HS2108, MA2104, MA4111, ME2104, MM2104, PH4105",
+    morning: "CE2104, CH2105/CB2104, CH4105, CS2104, EE2101, EP2104, HS1101, HS2108, MA2104, MA4111, ME2104, MM2104, PH4105",
 
     evening: "CB3105, CE6109, EC5116/EC5110, EE6103, EP3105, HS4118, HS4119, MA3105, ME3105"
   },
@@ -334,7 +334,7 @@ const MIDSEM_FULL = [
 
     morning: "CE1101, CE6128, CS2105, EC3105, HS4123, MM2105, PH001",
 
-    evening: "CB4103, CB6105, CE6130, CS6109, EC5113/EC5119, EE6104, EP3103, ME4105, ME4106, ME6109, ME6111"
+    evening: "CB6105, CE6130, CS6109, EC5113/EC5119, EE6104, EP3103, ME4105, ME4106, ME6109, ME6111"
   },
 
   {
@@ -2349,8 +2349,10 @@ const MIDSEM_FULL = [
     if(!wrap) return;
 
     const hasElective = hssCode && HSS_MAP[hssCode];
+    const isMba = !!(currentUser && isMbaRoll(currentUser.roll));
     const items = MIDSEM_CORE.map(c=>({ code:c.code, day:c.day, date:c.date, delta: midsemDaysUntil(c.date) }));
     if(hasElective) items.push({ code:hssCode, day:MIDSEM_HSS_DAY, date:MIDSEM_HSS_DATE, delta: midsemDaysUntil(MIDSEM_HSS_DATE) });
+    if(isMba) items.push({ code:MBA_COURSE.code, day:MIDSEM_MBA_DAY, date:MIDSEM_MBA_DATE, delta: midsemDaysUntil(MIDSEM_MBA_DATE) });
     items.sort((a,b)=>a.delta-b.delta);
     const next = items.find(c=>c.delta>=0) || items[items.length-1];
 
@@ -2391,6 +2393,22 @@ const MIDSEM_FULL = [
       </div>`;
     }
 
+    let mbaBlock = '';
+    if(isMba){
+      const delta = midsemDaysUntil(MIDSEM_MBA_DATE);
+      const isNext = next && next.code===MBA_COURSE.code;
+      mbaBlock = `
+      <div class="exam-ticket elective ${isNext?'is-next':''}">
+        <div class="exam-code">${MBA_COURSE.code}</div>
+        ${nameSpan(MBA_COURSE.code,'exam-name')}
+        <div class="exam-time">${MIDSEM_SLOT_MORNING}</div>
+        <div class="exam-meta">
+          <span>${MIDSEM_MBA_DAY}, ${midsemFmtDate(MIDSEM_MBA_DATE)}</span>
+          <span class="exam-days">${midsemDaysLabel(delta)}</span>
+        </div>
+      </div>`;
+    }
+
     const bannerMsg = next
       ? `<b>${next.code}</b> — ${next.day}, ${midsemFmtDate(next.date)}, 10:30&nbsp;am &middot; ${midsemDaysLabel(next.delta)}`
       : '';
@@ -2401,7 +2419,7 @@ const MIDSEM_FULL = [
     function highlightRow(codesStr){
       return codesStr.split(', ').map(tok=>{
         const bare = tok.split('/')[0];
-        const isMine = coreCodes.includes(bare) || (hasElective && bare === hssCode);
+        const isMine = coreCodes.includes(bare) || (hasElective && bare === hssCode) || (isMba && bare === MBA_COURSE.code);
         const matches = !q || tok.toUpperCase().includes(q);
         const cls = [isMine ? 'mine' : '', !matches ? 'dim' : ''].filter(Boolean).join(' ');
         return `<span class="${cls}">${escapeHtml(tok)}</span>`;
@@ -2427,6 +2445,8 @@ const MIDSEM_FULL = [
 
       <div class="section-label">HSS Elective-I</div>
       ${electiveBlock}
+
+      ${isMba ? `<div class="section-label">MBA Paper</div>${mbaBlock}` : ''}
 
       <div class="section-label">Full week, both slots</div>
       <div class="exam-toggle-row">
@@ -3149,4 +3169,3 @@ const MIDSEM_FULL = [
   tryAutoLogin();
 
 })();
-
