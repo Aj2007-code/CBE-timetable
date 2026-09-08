@@ -5,6 +5,8 @@
   const STUDENT_MAP = {};
   STUDENTS.forEach(s => STUDENT_MAP[s.roll.toUpperCase()] = s.name);
 
+  // Roll numbers that are blocked from logging in / using the app.
+  // (empty by default — add roll numbers here, e.g. ["2501CB99"], to block them.)
   const BLOCKED_ROLLS = [];
 
   function isBlockedRoll(roll){
@@ -27,9 +29,9 @@
     let tickTimer = null;
     let heartbeatTimer = null;
     let isIdle = false;
-    const IDLE_LIMIT_MS = 60 * 1000;   
-    const TICK_MS = 5 * 1000;          
-    const HEARTBEAT_MS = 30 * 1000;    
+    const IDLE_LIMIT_MS = 60 * 1000;   // no interaction for 60s = idle, stop counting
+    const TICK_MS = 5 * 1000;          // add to active time every 5s while active+visible
+    const HEARTBEAT_MS = 30 * 1000;    // push active_seconds to the sheet every 30s
 
     function configured(){
       return !!SESSION_LOG_URL && !SESSION_LOG_URL.includes("PASTE_");
@@ -50,7 +52,7 @@
             keepalive: true
           }).catch(()=>{});
         }
-      }catch(e){  }
+      }catch(e){ /* logging must never break the app */ }
     }
 
     function markActive(){
@@ -162,6 +164,9 @@
 
   const LAB_SPLIT_COURSES = new Set(["CB2102", "CB2103"]); 
 
+  // ---- CB2102 Fluid Mechanics Lab: 16 groups, alternating weeks ----
+  // Groups 1-8 ("set A") and Groups 9-16 ("set B") take the lab on
+  // alternating weeks. Roster sourced from CB2102_LAB_Group_list.pdf.
   const FLUID_LAB_GROUPS = {
     1: ["2501CB01", "2501CB02", "2501CB03", "2501CB04", "2501CB05", "2501CT07", "2501CT26"],
     2: ["2501CB06", "2501CB07", "2501CB08", "2501CB09", "2501CB10", "2501CT19", "2501CT23"],
@@ -198,7 +203,9 @@
     d.setDate(d.getDate() + diffToMon);
     return d;
   }
-
+  // Week of Mon 24 Aug 2026 confirmed as Set A's (Groups 1-8) turn.
+  // That week's lab was moved from its usual Friday slot to a one-off
+  // Monday 24 Aug 10:00-12:00 session, for Groups 1-8 only.
   const FLUID_LAB_ANCHOR_MONDAY = fluidLabMondayOf(new Date(2026,7,24));
   const FLUID_LAB_EXCEPTION_ISO = "2026-08-24";
   function fluidLabActiveSetForWeek(date){
@@ -207,19 +214,22 @@
     const parity = ((diffWeeks % 2) + 2) % 2;
     return parity === 0 ? "A" : "B";
   }
-  
+  // Returns a CB2102 lab session object for this date/group, or null.
   function fluidLabSessionForDate(date, groupNum){
     if(!groupNum) return null;
     const iso = isoDate(date);
     const mySet = fluidLabSetOf(groupNum);
     const isExceptionWeek = isoDate(fluidLabMondayOf(date)) === isoDate(FLUID_LAB_ANCHOR_MONDAY);
 
-    
+    // One-off: Monday 24 Aug 2026, Groups 1-8 only.
     if(iso === FLUID_LAB_EXCEPTION_ISO && mySet === "A"){
       return { day:1, start:tm(11,0), end:tm(13,0), code:"CB2102", type:"lab", room:"Lab", note:"Shifted from Friday — this week only" };
     }
+    // During the exception week, nobody gets the normal Friday slot
+    // (Set A already had theirs on Monday; it's not Set B's turn).
     if(isExceptionWeek) return null;
 
+    // Normal alternating pattern: whichever set is "on" gets Friday's slot.
     if(date.getDay() === 5 && fluidLabActiveSetForWeek(date) === mySet){
       return { day:5, start:tm(10,0), end:tm(11,55), code:"CB2102", type:"lab", room:"Lab" };
     }
@@ -248,6 +258,7 @@
     ]
   };
 
+  // ===== Mid-semester exam datesheet (20–28 Sep 2026) =====
   const MIDSEM_SLOT_MORNING = "10:30 AM – 12:30 PM";
   const MIDSEM_SLOT_EVENING = "3:30 PM – 5:30 PM";
 
@@ -260,12 +271,25 @@
       note:"" },
   ];
 
+  // HS2110 / HS2111 / HS2112 all sit in the same exam slot — only the code differs by section.
   const MIDSEM_HSS_DATE = "2026-09-22";
   const MIDSEM_HSS_DAY = "Tuesday";
 
+  // Full week, both slots, every branch — for spotting a friend's exam or a room clash.
+ // ============================================================
+// MIDSEM — HS2110 / HS2111 / HS2112
+// These courses share the same exam slot; only the section/code differs.
+// ============================================================
 
 const MIDSEM_HS_DATE = "2026-09-22";
 const MIDSEM_HS_DAY = "Tuesday";
+
+
+// ============================================================
+// FULL MIDSEM SCHEDULE
+// Both slots, every branch
+// Used for spotting a friend's exam / room clash.
+// ============================================================
 
 const MIDSEM_FULL = [
 
@@ -423,8 +447,14 @@ const MIDSEM_FULL = [
   const SUPABASE_URL = "https://ektzrezmwzhautdmbrwf.supabase.co";       
   const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVrdHpyZXptd3poYXV0ZG1icndmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ4OTY1MzksImV4cCI6MjEwMDQ3MjUzOX0.IoVDIWNNqMzFFZUk_C2LV8Wm-cxBs3OM6Cp5bP2GTr4";  
 
+  // ===== Admin login gate =====
+  // The password check now happens server-side in /api/admin-login.js — the
+  // password itself lives only in a Vercel environment variable, never in
+  // this file. A successful check returns a short-lived signed token, which
+  // is what actually proves admin status to the server (see ADMIN_TOKEN below
+  // and requireAdmin() in api/_adminAuth.js).
   const ADMIN_LOGIN_ROLL = "2501CB23";
-  let ADMIN_TOKEN = null;
+  let ADMIN_TOKEN = null; // { token, expiresAt } — kept in memory only, never persisted
   async function verifyAdminPassword(pw){
     if(!pw) return false;
     try{
@@ -435,46 +465,24 @@ const MIDSEM_FULL = [
       });
       const data = await res.json().catch(()=>({}));
       if(!res.ok || !data.ok || !data.token) return false;
-      const rawExpiry = data.expiresAt;
-      const parsedExpiry = typeof rawExpiry === 'number'
-        ? rawExpiry
-        : (typeof rawExpiry === 'string' && /^\d+(?:\.\d+)?$/.test(rawExpiry.trim())
-          ? Number(rawExpiry)
-          : Date.parse(rawExpiry));
-      const expiresAt = Number.isFinite(parsedExpiry) ? parsedExpiry : null;
-      ADMIN_TOKEN = { token: data.token, expiresAt };
+      ADMIN_TOKEN = { token: data.token, expiresAt: data.expiresAt };
       return true;
     }catch(e){
       return false;
     }
   }
   function adminTokenValid(){
-    if(!ADMIN_TOKEN || !ADMIN_TOKEN.token) return false;
-    if(ADMIN_TOKEN.expiresAt != null){
-      const expiresAt = Number(ADMIN_TOKEN.expiresAt);
-      if(!Number.isFinite(expiresAt) || Date.now() >= expiresAt){
-        ADMIN_TOKEN = null;
-        return false;
-      }
-    }
-    return true;
+    return !!(ADMIN_TOKEN && ADMIN_TOKEN.expiresAt && Date.now() < ADMIN_TOKEN.expiresAt);
   }
-  
+  // Attach this to any fetch() that hits an admin-only /api endpoint.
   function adminAuthHeader(){
     return adminTokenValid() ? { 'x-admin-token': ADMIN_TOKEN.token } : {};
   }
 
   const PYQ_BUCKET = "pyq";
   const PYQ_ADMIN_ROLL = "2501CB23";
-  function storagePublicUrl(bucket, storagePath){
-    const safePath = String(storagePath == null ? '' : storagePath)
-      .split('/')
-      .map(segment => encodeURIComponent(segment))
-      .join('/');
-    return `${SUPABASE_URL}/storage/v1/object/public/${bucket}/${safePath}`;
-  }
   function pyqPublicUrl(storagePath){
-    return storagePublicUrl(PYQ_BUCKET, storagePath);
+    return `${SUPABASE_URL}/storage/v1/object/public/${PYQ_BUCKET}/${storagePath}`;
   }
   function pyqIsAdmin(){
     return !!(currentUser && currentUser.roll === PYQ_ADMIN_ROLL && adminTokenValid());
@@ -483,17 +491,19 @@ const MIDSEM_FULL = [
   const BOOKS_BUCKET = "books";
   const BOOKS_ADMIN_ROLL = "2501CB23";
   function booksPublicUrl(storagePath){
-    return storagePublicUrl(BOOKS_BUCKET, storagePath);
+    return `${SUPABASE_URL}/storage/v1/object/public/${BOOKS_BUCKET}/${storagePath}`;
   }
   function booksIsAdmin(){
     return !!(currentUser && currentUser.roll === BOOKS_ADMIN_ROLL && adminTokenValid());
   }
 
+  // ===== Timetable admin (reschedule / cancel classes for everyone) =====
   const TIMETABLE_ADMIN_ROLL = "2501CB23";
   function timetableIsAdmin(){
     return !!(currentUser && currentUser.roll === TIMETABLE_ADMIN_ROLL && adminTokenValid());
   }
 
+  // ===== Announcements =====
   const ANNOUNCE_ADMIN_ROLL = "2501CB23";
   const ANNOUNCE_TTL_HOURS = 6;
   function announceIsAdmin(){
@@ -549,19 +559,22 @@ const MIDSEM_FULL = [
       });
       if(!res.ok) throw new Error('supabase set failed: ' + res.status);
     }
-  
+    // ===== NEW: auto-backup snapshots =====
+    // Every successful attendance save also inserts a timestamped snapshot
+    // into cbe_attendance_backups (see SQL at the bottom of this file). This
+    // is what actually protects you if a future bug or bad write ever wipes
+    // cbe_attendance again — you (or your app) can always pull the most
+    // recent snapshot back out. This is fire-and-forget: it must never be
+    // allowed to block or fail the main save.
     async function sbBackupAttendance(roll, name, valueStr){
       try{
-        const res = await fetch(`${SUPABASE_URL}/rest/v1/cbe_attendance_backups`, {
+        await fetch(`${SUPABASE_URL}/rest/v1/cbe_attendance_backups`, {
           method: 'POST',
           headers: sbHeaders(),
           body: JSON.stringify([{ roll, name, attendance: JSON.parse(valueStr), backed_up_at: new Date().toISOString() }])
         });
-        if(!res.ok) throw new Error('backup failed: ' + res.status);
-        return true;
       }catch(e){
         console.warn('auto-backup snapshot failed (non-fatal)', e);
-        return false;
       }
     }
     async function sbGetLatestBackup(roll){
@@ -612,7 +625,7 @@ const MIDSEM_FULL = [
       });
       if(!res.ok) throw new Error('supabase set failed: ' + res.status);
     }
-
+    // ===== NEW: per-student settings (attendance mode + auto-backup toggle) =====
     async function sbGetSettings(roll){
       const res = await fetch(`${SUPABASE_URL}/rest/v1/cbe_settings?roll=eq.${encodeURIComponent(roll)}&select=attendance_mode,auto_backup`, { headers: sbHeaders() });
       if(!res.ok) throw new Error('supabase get failed: ' + res.status);
@@ -625,7 +638,7 @@ const MIDSEM_FULL = [
     }
     async function sbSetSettings(roll, name, valueStr){
       let parsed = {};
-      try{ parsed = JSON.parse(valueStr) || {}; }catch(e){ }
+      try{ parsed = JSON.parse(valueStr) || {}; }catch(e){ /* keep defaults below */ }
       const res = await fetch(`${SUPABASE_URL}/rest/v1/cbe_settings`, {
         method: 'POST',
         headers: Object.assign(sbHeaders(), { Prefer: 'resolution=merge-duplicates' }),
@@ -658,12 +671,8 @@ const MIDSEM_FULL = [
       isCloud: hasRemote || hasSupabase,
       async get(key, shared){
         if(hasRemote){
-          try{
-            const remote = await window.storage.get(key, shared);
-            if(remote != null) return remote;
-          }catch(e){
-            console.warn('window.storage get failed, trying fallback', e);
-          }
+          try{ return await window.storage.get(key, shared); }
+          catch(e){ return null; }
         }
         if(hasSupabase){
           if(key.indexOf('attendance:') === 0 || key === 'course-names' || key === 'global-overrides' || key.indexOf('hss:') === 0 || key.indexOf('dayoverrides:') === 0 || key.indexOf('settings:') === 0){
@@ -692,12 +701,8 @@ const MIDSEM_FULL = [
       async set(key, value, shared){
         lsWrite(key, value); 
         if(hasRemote){
-          try{
-            const r = await window.storage.set(key, value, shared);
-            if(r) return { key, value, synced:true };
-          }catch(e){
-            console.warn('window.storage set failed, trying fallback', e);
-          }
+          try{ const r = await window.storage.set(key, value, shared); return r ? { key, value, synced:true } : { key, value, synced:false }; }
+          catch(e){ return { key, value, synced:false }; }
         }
         if(hasSupabase && (key.indexOf('attendance:') === 0 || key === 'course-names' || key === 'global-overrides' || key.indexOf('hss:') === 0 || key.indexOf('dayoverrides:') === 0 || key.indexOf('settings:') === 0)){
           try{
@@ -705,13 +710,9 @@ const MIDSEM_FULL = [
               const roll = key.slice('attendance:'.length);
               const name = currentUser ? currentUser.name : '';
               await sbSetAttendance(roll, name, value);
-              
-              if(autoBackupEnabled){
-                const backedUp = await sbBackupAttendance(roll, name, value);
-                if(backedUp){
-                  try{ await Store.set('last-backup-at', new Date().toISOString(), true); }catch(e){}
-                }
-              }
+              // Fire-and-forget snapshot — never block/fail the real save on this.
+              // Respects the user's own auto-backup ON/OFF preference.
+              if(autoBackupEnabled) sbBackupAttendance(roll, name, value);
             }
             else if(key.indexOf('hss:') === 0) await sbSetHss(key.slice('hss:'.length), value);
             else if(key.indexOf('dayoverrides:') === 0) await sbSetDayOverrides(key.slice('dayoverrides:'.length), currentUser ? currentUser.name : '', value);
@@ -734,8 +735,9 @@ const MIDSEM_FULL = [
         }
         return { key, deleted:true };
       },
-      getLatestAttendanceBackup: sbGetLatestBackup,
-      createAttendanceBackup: sbBackupAttendance
+      // Exposed so the app can pull the last known-good cloud snapshot
+      // (used by the auto-backup restore helper below).
+      getLatestAttendanceBackup: sbGetLatestBackup
     };
   })();
 
@@ -744,9 +746,15 @@ const MIDSEM_FULL = [
   let dayOverrides = {}; 
   let globalOverrides = {};
   let currentUser = null; 
+  // ===== NEW: per-student attendance mode + auto-backup preference =====
+  // 'conventional' = unmarked sessions count as absent (original behaviour).
+  // 'auto'         = unmarked sessions count as present; only Absent/Cancelled
+  //                  need to be tapped. Chosen once at login, changeable later
+  //                  from the Attendance tab. autoBackupEnabled gates BOTH the
+  //                  periodic snapshot timer and the on-save snapshot above.
   let attendanceMode = 'conventional';
   let autoBackupEnabled = true;
-  let attendanceModeChosen = false; 
+  let attendanceModeChosen = false; // true once this roll has a saved preference
 
   const loginScreen = document.getElementById('loginScreen');
   const appScreen = document.getElementById('appScreen');
@@ -820,6 +828,9 @@ const MIDSEM_FULL = [
     if(roll === ADMIN_LOGIN_ROLL){
       syncAdminPassVisibility();
       if(adminPassField && adminPassField.style.display !== 'block'){
+        // Password field wasn't visible yet (e.g. roll was filled via
+        // autofill or the suggestion list) — show it and stop here instead
+        // of silently failing with an empty password.
         if(adminPassInput) adminPassInput.focus();
         return;
       }
@@ -842,6 +853,8 @@ const MIDSEM_FULL = [
       }
     }
     currentUser = { roll, name };
+    // Never remember the admin roll across sessions — the password must be
+    // re-entered every time, even with "remember me" checked.
     if(rememberMe.checked && roll !== ADMIN_LOGIN_ROLL){
       await Store.set('remembered-roll', roll, false);
     } else {
@@ -883,6 +896,8 @@ const MIDSEM_FULL = [
     try{
       const r = await Store.get('remembered-roll', false);
       if(r && r.value && r.value.toUpperCase() === ADMIN_LOGIN_ROLL){
+        // Old/previously-remembered admin session — never auto-login the admin
+        // roll. Clear it and require the password on the login screen instead.
         await Store.delete('remembered-roll', false);
         rollInput.value = ADMIN_LOGIN_ROLL;
         syncAdminPassVisibility();
@@ -894,7 +909,7 @@ const MIDSEM_FULL = [
       } else if(r && r.value && isBlockedRoll(r.value)){
         await Store.delete('remembered-roll', false);
       }
-    }catch(e){  }
+    }catch(e){ /* no remembered roll yet — fine, just show the login screen */ }
   }
 
   async function enterApp(){
@@ -916,6 +931,9 @@ const MIDSEM_FULL = [
     announceLoaded = false;
     fetchAnnouncements().then(renderAnnounceBell);
     startAutoBackupTimer();
+    // Ask (once) which attendance style this roll wants before showing the
+    // rest of the login-time modal chain. Existing users who haven't picked
+    // yet get asked too, since this is the first time the feature exists.
     if(!attendanceModeChosen){
       openAttendanceModeModal({ blocking:true, onDone: openDayEditAnnounceModal });
     } else {
@@ -977,6 +995,7 @@ const MIDSEM_FULL = [
   if(aboutCloseBtn) aboutCloseBtn.addEventListener('click', closeAboutModal);
   if(aboutOverlay) aboutOverlay.addEventListener('click', (e)=>{ if(e.target === aboutOverlay) closeAboutModal(); });
 
+  // ===== NEW: attendance mode picker (Conventional vs Auto-present) =====
   const attModeOverlay = document.getElementById('attModeModalOverlay');
   const attModeOptionsWrap = document.getElementById('attModeOptions');
   const attModeCancelBtn = document.getElementById('attModeCancelBtn');
@@ -1187,7 +1206,7 @@ const MIDSEM_FULL = [
 
   const addClassSaveBtn = document.getElementById('addClassSaveBtn');
   if(addClassSaveBtn){
-    addClassSaveBtn.addEventListener('click', async ()=>{
+    addClassSaveBtn.addEventListener('click', ()=>{
       const sel = document.getElementById('addClassCourseSelect');
       const isCustom = sel.value === '__custom__';
       const customCode = document.getElementById('addClassCustomCode').value.trim().toUpperCase();
@@ -1216,8 +1235,8 @@ const MIDSEM_FULL = [
 
       if(addClassIsGlobal){
         if(!timetableIsAdmin()){ closeAddClassModal(); return; }
-        if(addClassRescheduleSig) await cancelSessionForEveryone(addClassTargetDate, addClassRescheduleSig);
-        await addExtraSessionForEveryone(addClassTargetDate, session);
+        if(addClassRescheduleSig) cancelSessionForEveryone(addClassTargetDate, addClassRescheduleSig);
+        addExtraSessionForEveryone(addClassTargetDate, session);
       } else {
         addExtraSessionForDate(addClassTargetDate, session);
       }
@@ -1377,7 +1396,7 @@ const MIDSEM_FULL = [
     try{
       const r = await Store.get('last-backup-at', true);
       if(r && r.value) last = r.value;
-    }catch(e){  }
+    }catch(e){ /* no backup taken yet — fine */ }
     if(last){
       const days = Math.floor((Date.now() - new Date(last).getTime()) / 86400000);
       el.textContent = days<=0 ? 'Last backup: today' : `Last backup: ${days} day${days!==1?'s':''} ago`;
@@ -1450,6 +1469,12 @@ const MIDSEM_FULL = [
     e.target.value = '';
   });
 
+  // ===== NEW: automatic periodic snapshot =====
+  // In addition to the snapshot taken on every save (see sbBackupAttendance
+  // above), this takes a heartbeat snapshot every 10 minutes while the app
+  // is open, so even a session with no edits still has a recent recovery
+  // point, and repeated edits within a short window don't need to rely on
+  // Store.set alone.
   let autoBackupTimer = null;
   function startAutoBackupTimer(){
     if(autoBackupTimer) clearInterval(autoBackupTimer);
@@ -1458,14 +1483,14 @@ const MIDSEM_FULL = [
     autoBackupTimer = setInterval(()=>{
       if(!currentUser) return;
       if(!autoBackupEnabled) return;
-      Store.createAttendanceBackup(currentUser.roll, currentUser.name, JSON.stringify(attendance))
-        .then(ok=>{
-          if(ok) Store.set('last-backup-at', new Date().toISOString(), true).catch(()=>{});
-        })
-        .catch(()=>{});
+      Store.set(attKey(), JSON.stringify(attendance), true).catch(()=>{});
     }, 10 * 60 * 1000);
   }
 
+  // Manually pull the most recent auto-backup snapshot back into your
+  // account — a safety net if cbe_attendance is ever found empty/wrong
+  // again. Wire this up to a button if/when you want it exposed in the UI;
+  // for now it's callable from the console as restoreFromAutoBackup().
   async function restoreFromAutoBackup(){
     if(!currentUser) return;
     try{
@@ -1488,6 +1513,17 @@ const MIDSEM_FULL = [
 
   const CODE_MIGRATION = { "CB2201":"CB2101", "CB2202":"CB2102", "CB2203":"CB2103", "CB2204":"CB2104", "CB2205":"CB2105" };
 
+  // ===== FIX: migration split into two independent functions =====
+  // Previously a single migrateOldCodes() checked BOTH the personal
+  // `attendance` object AND the shared `courseNames` object, and returned
+  // one combined "changed" flag. That meant a stale code found only in the
+  // *shared* courseNames record (which any student could be the first to
+  // trigger a cleanup of) could cause persistAttendance() to run and
+  // overwrite this student's cloud attendance — even when their own
+  // `attendance` load had just failed/timed out and was sitting at `{}`.
+  // Splitting these means a courseNames-only migration can never trigger
+  // an attendance write, and an attendance write only happens for a
+  // genuine attendance-key migration.
   function migrateAttendanceCodes(){
     let changed = false;
     const migrated = {};
@@ -1509,11 +1545,7 @@ const MIDSEM_FULL = [
     Object.keys(courseNames).forEach(code=>{
       const newCode = CODE_MIGRATION[code] || code;
       if(newCode !== code) changed = true;
-      if(!(newCode in migrated)){
-        migrated[newCode] = courseNames[code];
-      }else if(newCode !== code && migrated[newCode] !== courseNames[code]){
-        console.warn('Course-name migration collision for', newCode, '- keeping existing value');
-      }
+      if(!(newCode in migrated)) migrated[newCode] = courseNames[code];
     });
     courseNames = migrated;
     return changed;
@@ -1531,7 +1563,10 @@ const MIDSEM_FULL = [
     attendanceMode = 'conventional';
     autoBackupEnabled = true;
     attendanceModeChosen = false;
-   
+    // Only true if the attendance fetch actually completed (success OR a
+    // confirmed "no records yet" — never on a network/timeout failure).
+    // This guards against ever writing an empty `attendance` back to
+    // Supabase just because the load didn't finish.
     let attendanceLoadOk = false;
     try{
       const a = await Store.get(attKey(), true);
@@ -1541,19 +1576,19 @@ const MIDSEM_FULL = [
     try{
       const n = await Store.get('course-names', true);
       if(n && n.value) courseNames = JSON.parse(n.value);
-    }catch(e){  }
+    }catch(e){ /* no custom names yet — fine */ }
     try{
       const h = await Store.get(hssKey(), true);
       if(h && typeof h.value === 'string') hssCode = h.value; 
-    }catch(e){  }
+    }catch(e){ /* never chosen yet — fine, stays null */ }
     try{
       const o = await Store.get(dayOverridesKey(), true);
       if(o && o.value) dayOverrides = JSON.parse(o.value);
-    }catch(e){  }
+    }catch(e){ /* no personal day edits yet — fine */ }
     try{
       const g = await Store.get('global-overrides', true);
       if(g && g.value) globalOverrides = JSON.parse(g.value);
-    }catch(e){  }
+    }catch(e){ /* no admin reschedules yet — fine */ }
     try{
       const st = await Store.get(settingsKey(), true);
       if(st && st.value){
@@ -1562,11 +1597,13 @@ const MIDSEM_FULL = [
         if(parsed && typeof parsed.auto_backup === 'boolean') autoBackupEnabled = parsed.auto_backup;
         attendanceModeChosen = true;
       }
-    }catch(e){  }
+    }catch(e){ /* never chosen yet — fine, stays unset and the login modal will ask */ }
     rebuildPersonalSchedule();
 
     const attChanged = migrateAttendanceCodes();
     const namesChanged = migrateCourseNames();
+    // Guarded: only ever write attendance back if the load genuinely
+    // succeeded AND a migration actually touched it.
     if(attChanged && attendanceLoadOk) await persistAttendance();
     if(namesChanged) await persistNames();
   }
@@ -1580,6 +1617,9 @@ const MIDSEM_FULL = [
     }catch(e){ console.warn('hss save failed', e); flashSaveToast(false); }
   }
 
+  // Saves attendanceMode + autoBackupEnabled together as one JSON blob.
+  // Silent by default (no toast) since this fires from the mandatory
+  // first-login modal too, where a save toast would be noisy/confusing.
   async function persistUserSettings(silent){
     if(!currentUser) return;
     try{
@@ -1851,7 +1891,7 @@ const MIDSEM_FULL = [
   }
 
   async function persistGlobalOverrides(){
-    if(!timetableIsAdmin()){ flashSaveToast(false, 'Admin session expired — please log in again'); return; }
+    if(!timetableIsAdmin()){ flashSaveToast(false, 'Not saved — admin only'); return; }
     try{
       const res = await Store.set('global-overrides', JSON.stringify(globalOverrides), true);
       if(!res){ flashSaveToast(false, 'Save failed — storage unavailable'); }
@@ -1880,7 +1920,7 @@ const MIDSEM_FULL = [
     let h12 = h%12; if(h12===0) h12=12;
     return h12+":"+pad(m)+" "+ap;
   }
-  
+  // Rounds a session's raw duration so a near-hour slot (e.g. 55 min) reads as a clean hour.
   function roundedSessionMinutes(s){
     const mins = Math.max(0, (s.end||0) - (s.start||0));
     const hours = Math.floor(mins/60);
@@ -1906,11 +1946,7 @@ const MIDSEM_FULL = [
 
   function scheduleForDay(dow){ return PERSONAL_SCHEDULE.filter(s=>s.day===dow); }
 
-  function sessionSig(s){
-    return [s.code, s.start, s.end, s.room, s.type]
-      .map(v => String(v == null ? "" : v))
-      .join("|");
-  }
+  function sessionSig(s){ return s.code+"|"+s.start+"|"+s.room; }
 
   function ensureDayOverride(iso){
     if(!dayOverrides[iso]) dayOverrides[iso] = { removed:[], extra:[] };
@@ -1923,6 +1959,7 @@ const MIDSEM_FULL = [
     if(ov && (!ov.removed || !ov.removed.length) && (!ov.extra || !ov.extra.length)) delete dayOverrides[iso];
   }
 
+  // ===== Global (admin) day overrides — apply to EVERYONE's timetable =====
   function ensureGlobalOverride(iso){
     if(!globalOverrides[iso]) globalOverrides[iso] = { removed:[], extra:[] };
     if(!globalOverrides[iso].removed) globalOverrides[iso].removed = [];
@@ -1963,6 +2000,8 @@ const MIDSEM_FULL = [
     return list.slice().sort((a,b)=> a.start-b.start);
   }
 
+  // Returns base-schedule sessions removed for this date, tagged with who removed them
+  // (admin, for everyone — `_global:true` — and/or the current user personally — `_personal:true`).
   function removedBaseSessionsForDate(date){
     const dow = date.getDay();
     const iso = isoDate(date);
@@ -2003,35 +2042,36 @@ const MIDSEM_FULL = [
     persistDayOverrides();
   }
 
-  async function cancelSessionForEveryone(date, sig){
+  // Admin-only: cancel/restore/add/delete classes on the SHARED timetable (affects every student).
+  function cancelSessionForEveryone(date, sig){
     if(!timetableIsAdmin()) return;
     const ov = ensureGlobalOverride(isoDate(date));
     if(!ov.removed.includes(sig)) ov.removed.push(sig);
-    await persistGlobalOverrides();
+    persistGlobalOverrides();
   }
-  async function restoreSessionForEveryone(date, sig){
+  function restoreSessionForEveryone(date, sig){
     if(!timetableIsAdmin()) return;
     const iso = isoDate(date);
     const ov = globalOverrides[iso];
     if(!ov) return;
     ov.removed = (ov.removed||[]).filter(x=>x!==sig);
     cleanupGlobalOverride(iso);
-    await persistGlobalOverrides();
+    persistGlobalOverrides();
   }
-  async function addExtraSessionForEveryone(date, session){
+  function addExtraSessionForEveryone(date, session){
     if(!timetableIsAdmin()) return;
     const ov = ensureGlobalOverride(isoDate(date));
     ov.extra.push(session);
-    await persistGlobalOverrides();
+    persistGlobalOverrides();
   }
-  async function deleteExtraSessionForEveryone(date, id){
+  function deleteExtraSessionForEveryone(date, id){
     if(!timetableIsAdmin()) return;
     const iso = isoDate(date);
     const ov = globalOverrides[iso];
     if(!ov) return;
     ov.extra = (ov.extra||[]).filter(e=>e.id!==id);
     cleanupGlobalOverride(iso);
-    await persistGlobalOverrides();
+    persistGlobalOverrides();
   }
 
   function findNext(){
@@ -2130,6 +2170,11 @@ const MIDSEM_FULL = [
   }
 
   function markKeyFor(dateIso, s){ return dateIso+"|"+s.code+"|"+s.start; }
+
+  // Shared mark-button markup for both the Now timeline and the Attendance
+  // day view. In 'conventional' mode all three buttons show (unmarked =
+  // absent). In 'auto' mode the Present button is hidden — presence is the
+  // default — leaving just Absent/Cancelled, per the auto-present feature.
   function markGroupHtml(key, status, disabled){
     const dis = disabled ? 'disabled' : '';
     const pBtn = `<button class="mark-btn p ${status==='p'?'active':''}" ${dis} data-key="${key}" data-val="p" title="Present">✓</button>`;
@@ -2138,6 +2183,9 @@ const MIDSEM_FULL = [
     return `<div class="mark-group">${attendanceMode === 'auto' ? '' : pBtn}${aBtn}${cBtn}</div>`;
   }
 
+  // Shared "this session isn't marked yet" note, shown only for sessions
+  // that have started but have no explicit status — reflects whichever way
+  // it will actually be counted by computeStats().
   function unmarkedNoteHtml(){
     return attendanceMode === 'auto'
       ? `<div class="cc-status auto-present">counted as present — tap ✕ if you were absent</div>`
@@ -2162,11 +2210,8 @@ const MIDSEM_FULL = [
   }
 
   function dateForWeekday(dow){
-    const today = startOfDay(now);
-    const jsDay = today.getDay();
-    const mondayOffset = jsDay === 0 ? -6 : 1 - jsDay;
-    const monday = addDays(today, mondayOffset);
-    return addDays(monday, Number(dow) - 1);
+    const diff = dow - now.getDay();
+    return addDays(now, diff);
   }
 
   function renderNowTimeline(){
@@ -2277,9 +2322,18 @@ const MIDSEM_FULL = [
         scheduleForDate(d).forEach(s=>{
           if(!sessionHasStarted(d, s)) return; 
           const key = markKeyFor(iso, s);
+          // Conventional mode: an unmarked-but-started session counts as
+          // absent by default. Auto-present mode: it counts as present by
+          // default — the student only has to tap Absent/Cancelled.
           const val = attendance[key] || (attendanceMode === 'auto' ? 'p' : 'a'); 
           if(val==='c') return;
           const statKey = statKeyForSession(s.code, s.type);
+          // Only fold this session into the overall total/present count if it
+          // belongs to one of the course cards actually shown below — a
+          // session under a course that isn't currently active (e.g. a
+          // dropped/switched elective) would otherwise inflate "sessions
+          // held" without ever appearing on any card, making the header
+          // number impossible to reconcile against the cards.
           if(!activeKeys.has(statKey)) return;
           stats[statKey].total++;
           totalMarked++;
@@ -2291,6 +2345,11 @@ const MIDSEM_FULL = [
   }
 
   const ATT_THRESHOLD = 75;
+
+  // Every session held so far for one stat-card's course (and split, if any)
+  // that currently counts as absent — whether the student explicitly tapped
+  // Absent, or it was simply never marked and defaulted to absent/present
+  // depending on attendanceMode. Most recent first.
   function computeMissedSessions(groupKey){
     const missed = [];
     const start = startOfDay(SEMESTER_START);
@@ -2650,13 +2709,13 @@ const MIDSEM_FULL = [
           <div class="pyq-file-row">
             <span class="pyq-file-icon"></span>
             <div class="pyq-file-info">
-              <div class="pyq-file-name">${escapeHtml(f.file_name)}</div>
+              <div class="pyq-file-name">${f.file_name}</div>
               <div class="pyq-file-meta">${pyqFmtSize(f.size_bytes)}</div>
             </div>
             <div class="pyq-file-actions">
               <a href="${pyqPublicUrl(f.storage_path)}" target="_blank" rel="noopener">View</a>
-              <a href="${pyqPublicUrl(f.storage_path)}" download="${escapeHtml(f.file_name)}">Download</a>
-              ${isAdmin ? `<button class="pyq-file-del" data-del-id="${f.id}" data-del-path="${escapeHtml(f.storage_path)}" title="Delete">🗑</button>` : ''}
+              <a href="${pyqPublicUrl(f.storage_path)}" download="${f.file_name}">Download</a>
+              ${isAdmin ? `<button class="pyq-file-del" data-del-id="${f.id}" data-del-path="${f.storage_path}" title="Delete">🗑</button>` : ''}
             </div>
           </div>`).join("")
         : `<div class="pyq-empty">No PYQ uploaded yet for this course.</div>`;
@@ -2830,13 +2889,13 @@ const MIDSEM_FULL = [
           <div class="pyq-file-row">
             <span class="pyq-file-icon"></span>
             <div class="pyq-file-info">
-              <div class="pyq-file-name">${escapeHtml(f.title || f.file_name)}</div>
+              <div class="pyq-file-name">${f.title || f.file_name}</div>
               <div class="pyq-file-meta">${pyqFmtSize(f.size_bytes)}</div>
             </div>
             <div class="pyq-file-actions">
               <a href="${booksPublicUrl(f.storage_path)}" target="_blank" rel="noopener">View</a>
-              <a href="${booksPublicUrl(f.storage_path)}" download="${escapeHtml(f.file_name)}">Download</a>
-              ${isAdmin ? `<button class="pyq-file-del" data-bdel-id="${f.id}" data-bdel-path="${escapeHtml(f.storage_path)}" title="Delete">🗑</button>` : ''}
+              <a href="${booksPublicUrl(f.storage_path)}" download="${f.file_name}">Download</a>
+              ${isAdmin ? `<button class="pyq-file-del" data-bdel-id="${f.id}" data-bdel-path="${f.storage_path}" title="Delete">🗑</button>` : ''}
             </div>
           </div>`).join("")
         : `<div class="pyq-empty">No reference material uploaded yet for this course.</div>`;
@@ -2898,13 +2957,10 @@ const MIDSEM_FULL = [
     });
   }
 
-  const BOOKS_MAX_BYTES = 50 * 1024 * 1024; 
+  const BOOKS_MAX_BYTES = 50 * 1024 * 1024; // matches Supabase free-plan project-wide cap
 
   async function booksUploadFile(courseCode, file){
-    if(!booksIsAdmin()){
-      flashSaveToast(false, 'Admin session expired — please log in again');
-      return;
-    }
+    if(!booksIsAdmin()) return;
     if(file.type !== 'application/pdf' && !/\.pdf$/i.test(file.name)){
       flashSaveToast(false, 'Only PDF files are supported');
       return;
@@ -2917,7 +2973,7 @@ const MIDSEM_FULL = [
     const loadingEl = document.querySelector(`[data-buploading-code="${courseCode}"]`);
     if(loadingEl) loadingEl.style.display = 'block';
     try{
-     
+      // Step 1: ask our function for a signed upload URL (tiny request).
       const signRes = await fetch('/api/books-admin', {
         method: 'POST',
         headers: Object.assign({ 'Content-Type': 'application/json' }, adminAuthHeader()),
@@ -2929,6 +2985,8 @@ const MIDSEM_FULL = [
         return;
       }
 
+      // Step 2: browser uploads the file DIRECTLY to Supabase Storage —
+      // this bypasses Vercel's function body limit entirely.
       const putRes = await fetch(signData.uploadUrl, {
         method: 'PUT',
         headers: { 'Content-Type': file.type || 'application/pdf', 'x-upsert': 'true' },
@@ -2939,9 +2997,10 @@ const MIDSEM_FULL = [
         return;
       }
 
+      // Step 3: confirm — tiny JSON payload, just saves the DB row.
       const confirmRes = await fetch('/api/books-admin', {
         method: 'POST',
-        headers: Object.assign({ 'Content-Type': 'application/json' }, adminAuthHeader()),
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           roll: currentUser.roll, action:'confirm', courseCode,
           fileName: signData.cleanName, storagePath: signData.storagePath, sizeBytes: file.size
@@ -2965,10 +3024,7 @@ const MIDSEM_FULL = [
   }
 
   async function booksDeleteFile(id, storagePath){
-    if(!booksIsAdmin()){
-      flashSaveToast(false, 'Admin session expired — please log in again');
-      return;
-    }
+    if(!booksIsAdmin()) return;
     if(!confirm('Delete this book for everyone?')) return;
     try{
       const res = await fetch('/api/books-admin', {
@@ -3258,12 +3314,6 @@ const MIDSEM_FULL = [
     document.getElementById('clockDate').textContent =
       now.toLocaleDateString(undefined,{weekday:'long', month:'short', day:'numeric'});
     if(!currentUser) return;
-    if(!adminTokenValid()){
-      const pyqBadge = document.getElementById('pyqAdminBadge');
-      const booksBadge = document.getElementById('booksAdminBadge');
-      if(pyqBadge) pyqBadge.style.display = 'none';
-      if(booksBadge) booksBadge.style.display = 'none';
-    }
     renderHero();
     if(lastSyncOk === true) updateSyncBadge();
     if(document.getElementById('view-now').classList.contains('active')){
@@ -3275,7 +3325,7 @@ const MIDSEM_FULL = [
     }
   }
 
-  async function renderAll(){
+  function renderAll(){
     if(!currentUser) return;
     buildDayRow();
     renderNowTimeline();
@@ -3284,7 +3334,8 @@ const MIDSEM_FULL = [
     renderExamsView();
     renderCreditsView();
     renderSpiView();
-    await Promise.all([renderPyqView(), renderBooksView()]);
+    renderPyqView();
+    renderBooksView();
     renderHero();
   }
 
@@ -3304,9 +3355,75 @@ const MIDSEM_FULL = [
         globalOverrides = next;
         renderAll();
       }
-    }catch(e){  }
+    }catch(e){ /* keep last known overrides — fine */ }
   }, 45000);
 
   tryAutoLogin();
 
 })();
+
+/* ============================================================
+   SETUP REQUIRED — run this once in Supabase SQL Editor to
+   enable the new auto-backup feature. Not needed for the
+   migration bug fix above, which works with your existing schema.
+   ============================================================
+
+create table if not exists cbe_attendance_backups (
+  id bigint generated always as identity primary key,
+  roll text not null,
+  name text,
+  attendance jsonb not null default '{}'::jsonb,
+  backed_up_at timestamptz not null default now()
+);
+
+create index if not exists cbe_attendance_backups_roll_idx
+  on cbe_attendance_backups (roll, backed_up_at desc);
+
+alter table cbe_attendance_backups enable row level security;
+
+-- Mirror whatever policy you already use on cbe_attendance for the anon
+-- key (insert + select), e.g.:
+create policy "anon insert backups" on cbe_attendance_backups
+  for insert to anon with check (true);
+create policy "anon read own backups" on cbe_attendance_backups
+  for select to anon using (true);
+
+-- Optional housekeeping: this table grows one row per save + one every
+-- 10 minutes per active user. Run this occasionally (or put it on a
+-- Supabase cron job) to keep only the most recent 20 snapshots per roll:
+delete from cbe_attendance_backups a
+where a.id not in (
+  select id from (
+    select id, row_number() over (partition by roll order by backed_up_at desc) rn
+    from cbe_attendance_backups
+  ) t where t.rn <= 20
+);
+*/
+
+/* ============================================================
+   SETUP REQUIRED — run this once in Supabase SQL Editor to
+   enable the new per-student settings (attendance mode + the
+   auto-backup ON/OFF toggle). One row per roll number, upserted
+   via Prefer: resolution=merge-duplicates, same as cbe_hss etc.
+   ============================================================
+
+create table if not exists cbe_settings (
+  roll text primary key,
+  name text,
+  attendance_mode text not null default 'conventional'
+    check (attendance_mode in ('conventional','auto')),
+  auto_backup boolean not null default true,
+  updated_at timestamptz not null default now()
+);
+
+alter table cbe_settings enable row level security;
+
+-- Mirror whatever policy you already use on cbe_hss/cbe_attendance for the
+-- anon key. Upserts need insert + select + update:
+create policy "anon insert settings" on cbe_settings
+  for insert to anon with check (true);
+create policy "anon read settings" on cbe_settings
+  for select to anon using (true);
+create policy "anon update settings" on cbe_settings
+  for update to anon using (true);
+*/
