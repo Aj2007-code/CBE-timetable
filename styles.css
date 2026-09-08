@@ -544,6 +544,7 @@
   .ltpc-box.credit .v{color:var(--teal);}
   .credit-missing{font-size:12px; color:var(--text-faint); font-family:var(--mono);}
 
+  /* Mid-Sem tab */
   .exam-intro{margin-bottom:16px;}
   .exam-banner{
     display:flex; align-items:center; gap:12px; flex-wrap:wrap;
@@ -600,6 +601,7 @@
   .exam-codes span.mine{color:var(--amber); background:rgba(245,165,36,0.12); border-radius:3px; padding:0 2px;}
   .exam-codes span.dim{opacity:.25;}
 
+  /* PYQ tab */
   .pyq-intro{margin-bottom:16px;}
   .pyq-intro-top{display:flex; align-items:flex-start; justify-content:space-between; gap:12px;}
   .pyq-intro-title{font-size:17px; font-weight:800; margin-bottom:6px;}
@@ -707,6 +709,7 @@
   .backup-meta{font-family:var(--mono); font-size:11px; color:var(--text-faint); margin-top:10px;}
   .backup-meta.due{color:var(--amber);}
 
+  /* ===== Attendance mode + auto-backup settings box (Attendance tab) ===== */
   .attmode-current-row{display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; margin-bottom:6px;}
   .attmode-current-text{font-size:12.5px; color:var(--text-dim);}
   .attmode-current-text b{color:var(--text);}
@@ -753,6 +756,24 @@
   .hss-option .hop-code{font-family:var(--mono); font-weight:800; font-size:14px; color:var(--violet);}
   .hss-option .hop-slot{font-family:var(--mono); font-size:10.5px; color:var(--text-faint);}
   .hss-option .hop-meta{font-size:11.5px; color:var(--text-dim); margin-top:6px; line-height:1.6; font-family:var(--mono);}
+
+  /* ===== Missed-sessions drilldown (tap a subject card in Attendance tab) ===== */
+  .stat-card{cursor:pointer; transition:border-color .15s ease, background .15s ease;}
+  .stat-card:hover{border-color:var(--rose);}
+  .missed-list{max-height:min(50vh, 380px); overflow-y:auto; display:flex; flex-direction:column; gap:8px; margin-bottom:14px;}
+  .missed-item{
+    display:flex; align-items:center; justify-content:space-between; gap:10px;
+    background:var(--surface-2); border:1px solid var(--border); border-radius:11px;
+    padding:10px 13px; cursor:pointer; transition:border-color .15s ease, background .15s ease;
+  }
+  .missed-item:hover{border-color:var(--rose); background:var(--surface-3);}
+  .missed-item-left{display:flex; flex-direction:column; gap:2px; min-width:0;}
+  .missed-item-date{font-family:var(--mono); font-weight:700; font-size:12.5px; color:var(--text);}
+  .missed-item-meta{font-size:11px; color:var(--text-faint);}
+  .missed-item-tag{font-family:var(--mono); font-size:10px; font-weight:700; padding:3px 8px; border-radius:999px; white-space:nowrap; flex-shrink:0;}
+  .missed-item-tag.explicit{color:var(--rose); background:var(--rose-dim); border:1px solid var(--rose);}
+  .missed-item-tag.auto{color:var(--amber); background:var(--amber-dim); border:1px solid var(--amber);}
+  .missed-empty{font-size:12.5px; color:var(--text-faint); padding:22px 4px; text-align:center; line-height:1.6;}
 
   .attmode-options{display:flex; flex-direction:column; gap:10px; margin-bottom:4px;}
   .attmode-option{
@@ -927,6 +948,7 @@
     .spi-breakdown-grid{grid-template-columns:1fr;}
   }
 
+  /* ===== AI Assistant chat widget ===== */
   .chat-fab{
     position:fixed; right:20px; bottom:20px; z-index:60;
     width:54px; height:54px; border-radius:50%; border:none; cursor:pointer;
