@@ -435,14 +435,29 @@ const MIDSEM_FULL = [
       });
       const data = await res.json().catch(()=>({}));
       if(!res.ok || !data.ok || !data.token) return false;
-      ADMIN_TOKEN = { token: data.token, expiresAt: data.expiresAt };
+      const rawExpiry = data.expiresAt;
+      const parsedExpiry = typeof rawExpiry === 'number'
+        ? rawExpiry
+        : (typeof rawExpiry === 'string' && /^\d+(?:\.\d+)?$/.test(rawExpiry.trim())
+          ? Number(rawExpiry)
+          : Date.parse(rawExpiry));
+      const expiresAt = Number.isFinite(parsedExpiry) ? parsedExpiry : null;
+      ADMIN_TOKEN = { token: data.token, expiresAt };
       return true;
     }catch(e){
       return false;
     }
   }
   function adminTokenValid(){
-    return !!(ADMIN_TOKEN && ADMIN_TOKEN.expiresAt && Date.now() < ADMIN_TOKEN.expiresAt);
+    if(!ADMIN_TOKEN || !ADMIN_TOKEN.token) return false;
+    if(ADMIN_TOKEN.expiresAt != null){
+      const expiresAt = Number(ADMIN_TOKEN.expiresAt);
+      if(!Number.isFinite(expiresAt) || Date.now() >= expiresAt){
+        ADMIN_TOKEN = null;
+        return false;
+      }
+    }
+    return true;
   }
   
   function adminAuthHeader(){
@@ -1836,7 +1851,7 @@ const MIDSEM_FULL = [
   }
 
   async function persistGlobalOverrides(){
-    if(!timetableIsAdmin()){ flashSaveToast(false, 'Not saved — admin only'); return; }
+    if(!timetableIsAdmin()){ flashSaveToast(false, 'Admin session expired — please log in again'); return; }
     try{
       const res = await Store.set('global-overrides', JSON.stringify(globalOverrides), true);
       if(!res){ flashSaveToast(false, 'Save failed — storage unavailable'); }
@@ -2886,7 +2901,10 @@ const MIDSEM_FULL = [
   const BOOKS_MAX_BYTES = 50 * 1024 * 1024; 
 
   async function booksUploadFile(courseCode, file){
-    if(!booksIsAdmin()) return;
+    if(!booksIsAdmin()){
+      flashSaveToast(false, 'Admin session expired — please log in again');
+      return;
+    }
     if(file.type !== 'application/pdf' && !/\.pdf$/i.test(file.name)){
       flashSaveToast(false, 'Only PDF files are supported');
       return;
@@ -2923,7 +2941,7 @@ const MIDSEM_FULL = [
 
       const confirmRes = await fetch('/api/books-admin', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: Object.assign({ 'Content-Type': 'application/json' }, adminAuthHeader()),
         body: JSON.stringify({
           roll: currentUser.roll, action:'confirm', courseCode,
           fileName: signData.cleanName, storagePath: signData.storagePath, sizeBytes: file.size
@@ -2947,7 +2965,10 @@ const MIDSEM_FULL = [
   }
 
   async function booksDeleteFile(id, storagePath){
-    if(!booksIsAdmin()) return;
+    if(!booksIsAdmin()){
+      flashSaveToast(false, 'Admin session expired — please log in again');
+      return;
+    }
     if(!confirm('Delete this book for everyone?')) return;
     try{
       const res = await fetch('/api/books-admin', {
@@ -3237,6 +3258,12 @@ const MIDSEM_FULL = [
     document.getElementById('clockDate').textContent =
       now.toLocaleDateString(undefined,{weekday:'long', month:'short', day:'numeric'});
     if(!currentUser) return;
+    if(!adminTokenValid()){
+      const pyqBadge = document.getElementById('pyqAdminBadge');
+      const booksBadge = document.getElementById('booksAdminBadge');
+      if(pyqBadge) pyqBadge.style.display = 'none';
+      if(booksBadge) booksBadge.style.display = 'none';
+    }
     renderHero();
     if(lastSyncOk === true) updateSyncBadge();
     if(document.getElementById('view-now').classList.contains('active')){
