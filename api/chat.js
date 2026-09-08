@@ -104,7 +104,7 @@ function fluidLabActiveSetForWeek(date) {
   const parity = ((diffWeeks % 2) + 2) % 2;
   return parity === 0 ? "A" : "B";
 }
-// Returns a CB2102 lab session object for this date/group, or null.
+
 function fluidLabSessionForDate(date, groupNum) {
   if (!groupNum) return null;
   const iso = isoDate(date);
