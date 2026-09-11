@@ -1836,6 +1836,21 @@ const MIDSEM_FULL = [
     const rem = mins % 60;
     return rem >= 55 ? (hours+1)*60 : hours*60 + rem;
   }
+
+  // ---- Double-attendance rule ----
+  // The 2-hour lecture blocks for CB2104 (Chemical Process Calculations,
+  // Thu 16:00-18:00) and CB2102 (Fluid Mechanics, Wed 15:00-16:55) are each
+  // recorded as TWO attendance units (not one) — this matches how the
+  // department logs a combined lecture+tutorial double period. Only these
+  // specific ~2-hour lecture sessions qualify; CB2102's 1-hour Mon/Fri
+  // lectures and its separately-tracked lab sessions are unaffected.
+  const DOUBLE_ATTENDANCE_CODES = new Set(["CB2102", "CB2104"]);
+  function isDoubleAttendanceSession(s){
+    return DOUBLE_ATTENDANCE_CODES.has(s.code) && s.type === "lecture" && roundedSessionMinutes(s) === 120;
+  }
+  function sessionAttendanceWeight(s){
+    return isDoubleAttendanceSession(s) ? 2 : 1;
+  }
   function fmtDuration(mins){
     const h = Math.floor(mins/60), m = mins % 60;
     if(h>0 && m>0) return `${h}h ${m}m`;
@@ -2222,9 +2237,10 @@ const MIDSEM_FULL = [
           if(val==='c') return;
           const statKey = statKeyForSession(s.code, s.type);
           if(!activeKeys.has(statKey)) return;
-          stats[statKey].total++;
-          totalMarked++;
-          if(val==='p'){ stats[statKey].present++; totalPresent++; }
+          const weight = sessionAttendanceWeight(s);
+          stats[statKey].total += weight;
+          totalMarked += weight;
+          if(val==='p'){ stats[statKey].present += weight; totalPresent += weight; }
         });
       }
     }
@@ -2246,7 +2262,7 @@ const MIDSEM_FULL = [
           const explicitVal = attendance[key];
           const val = explicitVal || (attendanceMode === 'auto' ? 'p' : 'a');
           if(val !== 'a') return;
-          missed.push({ date: new Date(d), iso, s, explicit: explicitVal === 'a' });
+          missed.push({ date: new Date(d), iso, s, explicit: explicitVal === 'a', weight: sessionAttendanceWeight(s) });
         });
       }
     }
@@ -2439,47 +2455,31 @@ const MIDSEM_FULL = [
     if(!wrap) return;
 
     const hasElective = hssCode && HSS_MAP[hssCode];
-    const items = MIDSEM_CORE.map(c=>({ code:c.code, day:c.day, date:c.date, delta: midsemDaysUntil(c.date) }));
-    if(hasElective) items.push({ code:hssCode, day:MIDSEM_HSS_DAY, date:MIDSEM_HSS_DATE, delta: midsemDaysUntil(MIDSEM_HSS_DATE) });
-    items.sort((a,b)=>a.delta-b.delta);
+    const items = MIDSEM_CORE.map(c=>({ code:c.code, day:c.day, date:c.date, note:c.note, isElective:false }));
+    if(hasElective) items.push({ code:hssCode, day:MIDSEM_HSS_DAY, date:MIDSEM_HSS_DATE, isElective:true });
+    items.forEach(it=> it.delta = midsemDaysUntil(it.date));
+    items.sort((a,b)=> a.delta-b.delta);
     const next = items.find(c=>c.delta>=0) || items[items.length-1];
 
-    const tickets = MIDSEM_CORE.map(c=>{
-      const delta = midsemDaysUntil(c.date);
-      const isNext = next && next.code===c.code;
+    const tickets = items.map(it=>{
+      const isNext = next && next.code===it.code;
       return `
-      <div class="exam-ticket ${isNext?'is-next':''}">
-        <div class="exam-code">${c.code}</div>
-        ${nameSpan(c.code,'exam-name')}
-        ${c.note ? `<div class="exam-flag">${escapeHtml(c.note)}</div>` : ''}
+      <div class="exam-ticket ${it.isElective?'elective':''} ${isNext?'is-next':''}">
+        <div class="exam-code">${it.code}</div>
+        ${nameSpan(it.code,'exam-name')}
+        ${it.note ? `<div class="exam-flag">${escapeHtml(it.note)}</div>` : ''}
         <div class="exam-time">${MIDSEM_SLOT_MORNING}</div>
         <div class="exam-meta">
-          <span>${c.day}, ${midsemFmtDate(c.date)}</span>
-          <span class="exam-days">${midsemDaysLabel(delta)}</span>
+          <span>${it.day}, ${midsemFmtDate(it.date)}</span>
+          <span class="exam-days">${midsemDaysLabel(it.delta)}</span>
         </div>
       </div>`;
     }).join('');
 
-    let electiveBlock;
-    if(hasElective){
-      const delta = midsemDaysUntil(MIDSEM_HSS_DATE);
-      const isNext = next && next.code===hssCode;
-      electiveBlock = `
-      <div class="exam-ticket elective ${isNext?'is-next':''}">
-        <div class="exam-code">${hssCode}</div>
-        ${nameSpan(hssCode,'exam-name')}
-        <div class="exam-time">${MIDSEM_SLOT_MORNING}</div>
-        <div class="exam-meta">
-          <span>${MIDSEM_HSS_DAY}, ${midsemFmtDate(MIDSEM_HSS_DATE)}</span>
-          <span class="exam-days">${midsemDaysLabel(delta)}</span>
-        </div>
-      </div>`;
-    } else {
-      electiveBlock = `
+    const electiveEmptyNote = hasElective ? '' : `
       <div class="exam-empty">
         Set your HSS elective from the <b>HSS</b> button above to see its exam date here — HS2110, HS2111 and HS2112 all sit in the same ${MIDSEM_HSS_DAY}, ${midsemFmtDate(MIDSEM_HSS_DATE)} slot, ${MIDSEM_SLOT_MORNING}.
       </div>`;
-    }
 
     const bannerMsg = next
       ? `<b>${next.code}</b> — ${next.day}, ${midsemFmtDate(next.date)}, 10:30&nbsp;am &middot; ${midsemDaysLabel(next.delta)}`
@@ -2512,11 +2512,9 @@ const MIDSEM_FULL = [
       </div>
       ${next ? `<div class="exam-banner"><span class="exam-banner-tag">Next up</span><span class="exam-banner-msg">${bannerMsg}</span></div>` : ''}
 
-      <div class="section-label">CBE EXAMS</div>
+      <div class="section-label">Your Exams</div>
       <div class="exam-tickets">${tickets}</div>
-
-      <div class="section-label">HSS Elective-I</div>
-      ${electiveBlock}
+      ${electiveEmptyNote}
 
       <div class="section-label">Full week, both slots</div>
       <div class="exam-toggle-row">
