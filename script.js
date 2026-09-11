@@ -261,6 +261,9 @@
   const MIDSEM_HSS_DATE = "2026-09-22";
   const MIDSEM_HSS_DAY = "Tuesday";
 
+  const MIDSEM_MBA_DATE = "2026-09-20";
+  const MIDSEM_MBA_DAY = "Sunday";
+
 const MIDSEM_HS_DATE = "2026-09-22";
 const MIDSEM_HS_DAY = "Tuesday";
 
@@ -2455,8 +2458,10 @@ const MIDSEM_FULL = [
     if(!wrap) return;
 
     const hasElective = hssCode && HSS_MAP[hssCode];
-    const items = MIDSEM_CORE.map(c=>({ code:c.code, day:c.day, date:c.date, note:c.note, isElective:false }));
-    if(hasElective) items.push({ code:hssCode, day:MIDSEM_HSS_DAY, date:MIDSEM_HSS_DATE, isElective:true });
+    const isMba = currentUser && isMbaRoll(currentUser.roll);
+    const items = MIDSEM_CORE.map(c=>({ code:c.code, day:c.day, date:c.date, note:c.note, isElective:false, isMba:false }));
+    if(hasElective) items.push({ code:hssCode, day:MIDSEM_HSS_DAY, date:MIDSEM_HSS_DATE, isElective:true, isMba:false });
+    if(isMba) items.push({ code:MBA_COURSE.code, day:MIDSEM_MBA_DAY, date:MIDSEM_MBA_DATE, isElective:false, isMba:true });
     items.forEach(it=> it.delta = midsemDaysUntil(it.date));
     items.sort((a,b)=> a.delta-b.delta);
     const next = items.find(c=>c.delta>=0) || items[items.length-1];
@@ -2464,7 +2469,7 @@ const MIDSEM_FULL = [
     const tickets = items.map(it=>{
       const isNext = next && next.code===it.code;
       return `
-      <div class="exam-ticket ${it.isElective?'elective':''} ${isNext?'is-next':''}">
+      <div class="exam-ticket ${it.isElective?'elective':''} ${it.isMba?'mba':''} ${isNext?'is-next':''}">
         <div class="exam-code">${it.code}</div>
         ${nameSpan(it.code,'exam-name')}
         ${it.note ? `<div class="exam-flag">${escapeHtml(it.note)}</div>` : ''}
