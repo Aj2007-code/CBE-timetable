@@ -1793,7 +1793,15 @@ const MIDSEM_FULL = [
     catch(e){ console.warn("save failed", e); lastSyncOk = false; lastSyncAt = new Date(); updateSyncBadge(); }
   }
 
-  async function persistDayOverrides(){
+  function _queuePersist(fn){
+    let chain = Promise.resolve();
+    return function(){
+      chain = chain.then(fn, fn); // run in order even if a prior save failed
+      return chain;
+    };
+  }
+
+  async function _persistDayOverridesImpl(){
     if(!currentUser){ flashSaveToast(false, 'Not saved — no user'); return; }
     try{
       const res = await Store.set(dayOverridesKey(), JSON.stringify(dayOverrides), true);
@@ -1802,8 +1810,9 @@ const MIDSEM_FULL = [
       else{ flashSaveToast(true, 'Day updated'); }
     }catch(e){ console.warn('day override save failed', e); flashSaveToast(false); }
   }
+  const persistDayOverrides = _queuePersist(_persistDayOverridesImpl);
 
-  async function persistGlobalOverrides(){
+    async function _persistGlobalOverridesImpl(){
     if(!timetableIsAdmin()){ flashSaveToast(false, 'Not saved — admin only'); return; }
     try{
       const res = await Store.set('global-overrides', JSON.stringify(globalOverrides), true);
@@ -1812,6 +1821,7 @@ const MIDSEM_FULL = [
       else{ flashSaveToast(true, 'Timetable updated for everyone'); }
     }catch(e){ console.warn('global override save failed', e); flashSaveToast(false); }
   }
+  const persistGlobalOverrides = _queuePersist(_persistGlobalOverridesImpl);
 
   function courseLabel(code){ return COURSE_NAMES[code] || courseNames[code] || code; }
   function tileCode(code){ return code.replace(/^CB|^HS/, ''); }
