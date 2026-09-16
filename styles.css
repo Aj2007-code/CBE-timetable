@@ -146,6 +146,7 @@
     .user-bar-actions::-webkit-scrollbar{display:none;}
     .user-bar-actions .bell-btn,
     .user-bar-actions .notes-btn,
+    .user-bar-actions .room-btn,
     .user-bar-actions .about-btn,
     .user-bar-actions .hss-btn,
     .user-bar-actions .logout-btn{
@@ -171,6 +172,11 @@
     font-size:11px; padding:7px 12px; border-radius:9px; cursor:pointer; flex-shrink:0; text-decoration:none; display:inline-block;
   }
   .notes-btn:hover{border-color:var(--amber);}
+  .room-btn{
+    background:var(--surface-2); border:1px solid var(--border); color:var(--teal); font-family:var(--mono);
+    font-size:11px; padding:7px 12px; border-radius:9px; cursor:pointer; flex-shrink:0; text-decoration:none; display:inline-block;
+  }
+  .room-btn:hover{border-color:var(--teal);}
 
   .bell-btn{
     position:relative; background:var(--surface-2); border:1px solid var(--border); color:var(--text-dim);
