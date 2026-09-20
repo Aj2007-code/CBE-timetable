@@ -96,7 +96,7 @@ input::placeholder{color:var(--faint);font-family:"IBM Plex Sans",sans-serif}
 .room-item:first-child{border-top:0}
 .room-name{font:800 13px "IBM Plex Mono",monospace;color:var(--teal)}
 .room-courses{display:flex;flex-wrap:wrap;gap:6px}
-.room-course{font:700 10px "IBM Plex Mono",monospace;color:var(--text);background:var(--surface2);border:1px solid var(--line);padding:5px 7px;border-radius:7px;word-break:break-word}
+.room-course{font:700 10px "IBM Plex Mono",monospace;color:var(--text);background:var(--surface2);border:1px solid var(--line);padding:5px 7px;border-radius:7px;word-break:break-word;cursor:pointer;text-align:left}.room-course:hover,.room-course[aria-expanded="true"]{border-color:var(--teal);color:var(--teal);background:var(--tealDim)}.course-rolls{display:none;grid-column:1/-1;margin-top:2px;padding:10px;background:var(--surface2);border:1px solid var(--line);border-radius:9px}.course-rolls.open{display:flex;flex-wrap:wrap;gap:5px}.course-roll{font:500 10px "IBM Plex Mono",monospace;color:var(--dim);background:var(--surface);border:1px solid var(--line);padding:4px 6px;border-radius:6px}
 .room-count{justify-self:end;text-align:right;color:var(--faint);font:600 10px "IBM Plex Mono",monospace}
 .room-search-wrap{position:relative}
 .room-empty{padding:34px 16px;text-align:center;color:var(--dim);border:1px dashed var(--line);border-radius:14px;background:rgba(25,33,42,.55)}
@@ -368,9 +368,19 @@ function renderRoomSchedule(){
     const rows=group.items.map(item=>{
       const courses=[...item.courses.keys()].sort((a,b)=>a.localeCompare(b));
       const studentCount=item.rolls.size;
+      const courseHtml=courses.map((c,i)=>{
+        const id='course-'+group.dateIndex+'-'+group.slot+'-'+String(item.room).replace(/[^a-zA-Z0-9_-]/g,'_')+'-'+i;
+        const rolls=[...item.courses.get(c)].sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}));
+        return '<div class="course-detail">'+
+          '<button type="button" class="room-course" data-roll-target="'+id+'" aria-expanded="false">'+esc(c)+'</button>'+
+          '<div id="'+id+'" class="course-rolls" aria-label="Roll numbers for '+esc(c)+'">'+
+            rolls.map(r=>'<span class="course-roll">'+esc(r)+'</span>').join('')+
+          '</div>'+
+        '</div>';
+      }).join('');
       return '<div class="room-item">'+
         '<div class="room-name">ROOM '+esc(item.room)+'</div>'+
-        '<div class="room-courses">'+courses.map(c=>'<span class="room-course">'+esc(c)+'</span>').join('')+'</div>'+
+        '<div class="room-courses">'+courseHtml+'</div>'+
         '<div class="room-count">'+studentCount+' student'+(studentCount===1?'':'s')+'</div>'+
       '</div>';
     }).join('');
@@ -383,6 +393,16 @@ function renderRoomSchedule(){
     '</section>';
   }).join('');
 }
+
+
+roomResults.addEventListener('click',e=>{
+  const button=e.target.closest('[data-roll-target]');
+  if(!button)return;
+  const panel=document.getElementById(button.dataset.rollTarget);
+  if(!panel)return;
+  const open=panel.classList.toggle('open');
+  button.setAttribute('aria-expanded',String(open));
+});
 
 roomSearch.addEventListener('input',renderRoomSchedule);
 roomDateFilter.addEventListener('change',renderRoomSchedule);
