@@ -492,10 +492,20 @@
   .week-item .nm-dur{color:var(--text-faint); font-size:10.5px; font-family:var(--mono); font-weight:500; flex-shrink:0;}
   .week-item .rm{color:var(--text-faint); font-size:11.5px; font-family:var(--mono); text-align:right; white-space:nowrap; padding-top:2px;}
 
-  .stat-grid{display:grid; grid-template-columns:repeat(auto-fit, minmax(140px,1fr)); gap:10px; margin-bottom:20px;}
+  .stat-grid{
+    display:grid;
+    grid-template-columns:repeat(4, minmax(0, 1fr));
+    grid-auto-rows:178px;
+    gap:12px;
+    margin-bottom:20px;
+  }
   .stat-card{
+    width:100%;
+    height:100%;
+    min-width:0;
     border:1px solid var(--border); background:var(--surface); border-radius:18px; padding:14px;
     display:flex; align-items:center; gap:12px;
+    overflow:hidden;
   }
   .gauge{width:52px; height:52px; flex-shrink:0; position:relative;}
   .gauge svg{transform:rotate(-90deg);}
@@ -503,9 +513,20 @@
     position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
     font-family:var(--mono); font-size:12px; font-weight:700;
   }
-  .stat-card .code{font-weight:800; font-size:13.5px; display:flex; align-items:center; gap:6px; flex-wrap:wrap;}
-  .stat-code{font-family:var(--mono); font-size:11.5px; color:var(--text-faint); font-weight:700;}
-  .stat-name{color:var(--text-dim); font-weight:600;}
+  .stat-card .code{
+    min-width:0;
+    font-weight:800; font-size:13.5px; display:flex; align-items:flex-start; gap:6px; flex-wrap:wrap;
+    line-height:1.25;
+  }
+  .stat-card > div:not(.gauge){min-width:0; flex:1 1 auto;}
+  .stat-code{font-family:var(--mono); font-size:11.5px; color:var(--text-faint); font-weight:700; flex:0 0 auto;}
+  .stat-name{
+    min-width:0;
+    max-width:100%;
+    color:var(--text-dim); font-weight:600;
+    overflow-wrap:anywhere;
+    word-break:normal;
+  }
   .stat-split-tag{
     display:inline-block; font-family:var(--mono); font-size:9.5px; font-weight:700;
     letter-spacing:0.1px; text-transform:none; color:var(--text-faint);
@@ -924,6 +945,21 @@
   .spi-save-msg{font-size:11px; text-align:center; margin-top:12px; color:var(--text-faint); font-family:var(--mono); min-height:15px;}
   .spi-save-msg.ok{color:var(--teal);}
   .spi-save-msg.err{color:var(--rose);}
+
+  @media (max-width:760px){
+    .stat-grid{
+      grid-template-columns:repeat(2, minmax(0, 1fr));
+      grid-auto-rows:178px;
+    }
+  }
+
+  @media (max-width:460px){
+    .stat-grid{
+      grid-template-columns:1fr;
+      grid-auto-rows:auto;
+    }
+    .stat-card{min-height:154px; height:auto;}
+  }
 
   @media (max-width:420px){
     .hero-countdown{font-size:22px; margin-left:0; text-align:left;}
