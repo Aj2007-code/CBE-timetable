@@ -3,13 +3,13 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#e7f1d3">
+<meta name="theme-color" content="#f2fbf8">
 <title>Mid-Sem Room Finder — Autumn 2026</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=Unbounded:wght@500;600;700&display=swap" rel="stylesheet">
 <style>
-:root{--bg:#e7f1d3;--surface:#fbfdf5;--surface2:#f2f8e4;--line:#bcd399;--ink:#1f3a1a;--lime:#c9e679;--limeSoft:#e4f2b4;--text:#1f3320;--dim:#4a6244;--faint:#5a7255;--teal:#367524;--tealDim:#dcefb4;--amber:#94590a;--amberDim:#f6e6b5;--rose:#b03a4e;--roseDim:#f7dbdf;--mono:"Instrument Sans",system-ui,sans-serif;}
+ :root{--bg:#f2fbf8;--surface:#ffffff;--surface2:#f3faf8;--line:#cfe7e2;--ink:#123c3b;--lime:#b8eee0;--limeSoft:#def7f0;--text:#173b3a;--dim:#547170;--faint:#78908e;--teal:#167f7a;--tealDim:#d9f3ee;--amber:#9a6a1b;--amberDim:#fbf0d6;--rose:#b9576d;--roseDim:#f8e2e8;--mono:"Instrument Sans",system-ui,sans-serif;}
 *{box-sizing:border-box}html,body{margin:0;min-height:100%;background-color:var(--bg);color:var(--text)}
 body{font-family:"Instrument Sans",sans-serif;font-variant-numeric:tabular-nums;font-size:15px;line-height:1.5;-webkit-text-size-adjust:100%}
 .wrap{max-width:920px;margin:0 auto;padding:24px 16px 70px}
@@ -106,6 +106,25 @@ input::placeholder{color:var(--faint);font-family:"Instrument Sans",sans-serif}
   .room-count{justify-self:start;text-align:left}
   .tabs{position:sticky;top:8px;z-index:20}
 }
+
+/* Visual-only polish */
+body{background:radial-gradient(circle at 8% 0%,rgba(111,219,201,.14),transparent 28rem),radial-gradient(circle at 95% 8%,rgba(112,170,230,.11),transparent 24rem),linear-gradient(180deg,#f8fdfc,#f2fbf8 55%,#edf9f7);}
+.wrap{max-width:1080px;padding-top:22px;}
+.controls,.room-controls{border-color:#d2e8e4;background:rgba(255,255,255,.88);box-shadow:0 14px 35px rgba(24,79,76,.07);backdrop-filter:blur(12px);}
+input,select,.roll-field{border-color:#cfe5e1;background:#f7fcfb;}
+input:focus,select:focus,.roll-field:focus-within{border-color:#54aaa4;box-shadow:0 0 0 4px rgba(22,127,122,.10);}
+.sugg{border-color:#cfe5e1;box-shadow:0 16px 38px rgba(24,79,76,.13);}
+.tabs{border-color:#d2e8e4;background:rgba(255,255,255,.86);box-shadow:0 10px 28px rgba(23,82,78,.08);backdrop-filter:blur(14px);}
+.tab.active{background:linear-gradient(135deg,#d9f5ee,#e8f6fb);color:#126d68;box-shadow:inset 0 0 0 1px #b8ded8;}
+.student-result,.slot,.schedule-compare{border-color:#d2e8e4;background:#fff;box-shadow:0 7px 22px rgba(23,82,78,.045);}
+.student-head,.slot-head,.compare-head{background:#f3faf8;border-bottom-color:#dcece9;}
+.exam-row,.compare-row,.course{border-top-color:#dcebe8;}
+.student-roll,.code,.exam-room,.compare-room{color:#167f7a;}
+.stat,.room-stat,.compare-pill,.roll{border-color:#d7e9e6;background:#f5fbfa;}
+.back{border-color:#d2e8e4;background:#fff;color:#547170;}
+.back:hover{background:#eaf8f5;border-color:#91c8c1;}
+.empty{border-color:#cfe5e1;background:rgba(255,255,255,.72);}
+.footer{border-top-color:#d8e9e6;}
 </style>
 </head>
 <body>
