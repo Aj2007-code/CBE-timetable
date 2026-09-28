@@ -2516,9 +2516,12 @@ const MIDSEM_FULL = [
         Set your HSS elective from the <b>HSS</b> button above to see its exam date here — HS2110, HS2111 and HS2112 all sit in the same ${MIDSEM_HSS_DAY}, ${midsemFmtDate(MIDSEM_HSS_DATE)} slot, ${MIDSEM_SLOT_MORNING}.
       </div>`;
 
-    const bannerMsg = next
-      ? `<b>${next.code}</b> — ${next.day}, ${midsemFmtDate(next.date)}, 10:30&nbsp;am &middot; ${midsemDaysLabel(next.delta)}`
-      : '';
+    const allDone = items.length > 0 && items.every(c=>c.delta<0);
+    const bannerMsg = allDone
+      ? `All your mid-sem exams are done. Classes resume ${BREAK_RESUME_LABEL}.`
+      : next
+        ? `<b>${next.code}</b> — ${next.day}, ${midsemFmtDate(next.date)}, 10:30&nbsp;am &middot; ${midsemDaysLabel(next.delta)}`
+        : '';
 
     const coreCodes = MIDSEM_CORE.map(c=>c.code);
     const q = examSearchQuery;
@@ -2545,7 +2548,7 @@ const MIDSEM_FULL = [
         <div class="pyq-intro-title">Mid-Sem TimeTable</div>
         <div class="pyq-intro-sub">20–28 September 2026</div>
       </div>
-      ${next ? `<div class="exam-banner"><span class="exam-banner-tag">Next up</span><span class="exam-banner-msg">${bannerMsg}</span></div>` : ''}
+      ${next ? `<div class="exam-banner"><span class="exam-banner-tag">${allDone ? 'Done' : 'Next up'}</span><span class="exam-banner-msg">${bannerMsg}</span></div>` : ''}
 
       <div class="section-label">Your Exams</div>
       <div class="exam-tickets">${tickets}</div>
