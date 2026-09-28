@@ -3,9 +3,10 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="theme-color" content="#e8f0e2" />
 <title>CBE-3rd Sem — Live Timetable</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Figtree:wght@400;500;600;700&family=Spline+Sans+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -13,7 +14,7 @@
 <div class="login-wrap" id="loginScreen">
   <div class="login-card">
     <div class="login-badge"><span class="num">IIT</span><span class="sym">CBE</span></div>
-    <div class="login-title">CBE · 2nd Year Schedule</div>
+    <div class="login-title">CBE 2nd Year Schedule</div>
     <div class="login-sub">Sign in with your roll number to view your personal timetable and attendance.</div>
 
     <div class="login-field">
@@ -30,7 +31,7 @@
       <input type="checkbox" id="rememberMe" checked />
       <label for="rememberMe">Remember me on this device</label>
     </div>
-    <button class="login-btn" id="loginBtn">Continue →</button>
+    <button class="login-btn" id="loginBtn">Continue</button>
     <div class="login-foot">Attendance will be saved to your own profile</div>
   </div>
 </div>
@@ -76,11 +77,7 @@
 
 
   <div class="hero" id="hero">
-    <svg class="hero-ring" viewBox="0 0 100 100"><g stroke="#2dd9c4" stroke-width="1.4" fill="none" opacity="0.5">
-      <polygon points="50,10 84,30 84,70 50,90 16,70 16,30"/>
-      <circle cx="50" cy="50" r="26"/>
-    </g></svg>
-    <div class="hero-eyebrow"><span class="live-dot"></span> Live · Next Class</div>
+    <div class="hero-eyebrow"><span class="live-dot"></span> Next up</div>
     <div id="heroContent"></div>
     <div class="burette" id="burette" style="display:none;">
       <div class="burette-fill" id="buretteFill"></div>
@@ -352,8 +349,8 @@
         <span class="info-text"><b>Edit your day</b> — in the <b>Attendance</b> tab, pick any date to add an extra/makeup class or remove one that's been cancelled — just for your own timetable, the shared schedule never changes. Removed classes can be restored anytime.</span>
       </div>
       <div class="feature-item">
-        <span class="feature-tag ai">✦</span>
-        <span class="info-text"><b>Ask</b> — tap the ✦ button in the corner to open a quick AI assistant. Ask it about your schedule, attendance, or electives and it'll give you a short, direct answer.</span>
+        <span class="feature-tag ai">Ask</span>
+        <span class="info-text"><b>Ask</b> — tap the Ask button in the corner to open a quick AI assistant. Ask it about your schedule, attendance, or electives and it'll give you a short, direct answer.</span>
       </div>
       <div class="feature-item">
         <span class="feature-tag pyq">PYQ</span>
@@ -431,7 +428,7 @@
 </div>
 
 <button class="chat-fab" id="chatFab" aria-label="Open assistant" style="display:none;">
-  <span class="chat-fab-icon">✦</span>
+  <span class="chat-fab-icon">Ask</span>
 </button>
 
 <div class="chat-panel" id="chatPanel" style="display:none;">

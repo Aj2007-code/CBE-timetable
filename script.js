@@ -2045,7 +2045,7 @@ const MIDSEM_FULL = [
     const next = findNext();
     if(!next){
       heroContent.innerHTML = isBreakIso(isoDate(now))
-        ? `<div class="hero-empty">${isoDate(now)<=EXAM_END_ISO?'📝':'🏖️'} ${breakLabel(isoDate(now))} — no classes or labs until ${BREAK_RESUME_LABEL}.</div>`
+        ? `<div class="hero-empty">${breakLabel(isoDate(now))} — no classes or labs until ${BREAK_RESUME_LABEL}.</div>`
         : `<div class="hero-empty">No 2nd-year classes on the books. Enjoy the Day.</div>`;
       burette.style.display="none";
       return;
@@ -2056,7 +2056,7 @@ const MIDSEM_FULL = [
       : offsetDays>=7 ? nextDate.toLocaleDateString(undefined,{weekday:'short', day:'numeric', month:'short'})
       : DAY_NAMES[nextDate.getDay()];
     const breakBanner = isBreakIso(isoDate(now))
-      ? `<div class="break-banner">${isoDate(now)<=EXAM_END_ISO?'📝':'🏖️'} ${breakLabel(isoDate(now))} — no classes or labs until ${BREAK_RESUME_LABEL}</div>` : "";
+      ? `<div class="break-banner">${breakLabel(isoDate(now))} — no classes or labs until ${BREAK_RESUME_LABEL}</div>` : "";
 
     let targetDate;
     if(status==="ongoing"){
