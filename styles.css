@@ -1055,3 +1055,94 @@
   .user-bar{border:1.5px solid var(--border);}
   .tile.lecture, .cc-tag.lecture{background:var(--teal-dim);}
   .hero-tile.lecture, .hero-tile.lab, .hero-tile.hss, .hero-tile.mba, .hero-tile.extra{background:var(--surface);}
+
+/* UI-only mobile attendance layout fixes */
+@media (max-width: 600px){
+  .class-card{
+    position:relative;
+    display:grid;
+    grid-template-columns:52px minmax(0,1fr);
+    align-items:start;
+    gap:12px;
+    padding:14px;
+    min-width:0;
+  }
+
+  .class-card .tile{
+    width:52px;
+    height:52px;
+    margin-top:1px;
+  }
+
+  .class-card .cc-body{
+    min-width:0;
+    width:100%;
+    display:grid;
+    grid-template-columns:1fr;
+    row-gap:0;
+    align-items:start;
+  }
+
+  /* Keep the course information together and give the action buttons their own row. */
+  .class-card .cc-top,
+  .class-card .cc-meta,
+  .class-card .cc-status{
+    grid-column:1 / -1;
+    min-width:0;
+  }
+
+  .class-card .cc-top{
+    align-items:flex-start;
+    line-height:1.35;
+    padding-right:70px;
+  }
+
+  .class-card .cc-name{
+    min-width:0;
+    overflow-wrap:anywhere;
+    word-break:normal;
+  }
+
+  .class-card .cc-meta{
+    overflow-wrap:anywhere;
+  }
+
+  .class-card .mark-group{
+    position:absolute;
+    top:18px;
+    right:14px;
+    z-index:2;
+    margin:0;
+  }
+
+  .class-card .day-edit-remove{
+    margin-top:9px;
+    margin-right:0;
+    padding:4px 0;
+    line-height:1.25;
+    white-space:normal;
+    text-align:left;
+    min-width:0;
+  }
+
+  /* The three admin actions always remain in semantic order:
+     remove for me → cancel for everyone → reschedule for everyone. */
+  .class-card .day-edit-remove:not(.admin-remove):not(.admin-reschedule),
+  .class-card .day-edit-remove.admin-remove,
+  .class-card .day-edit-remove.admin-reschedule{
+    grid-column:1;
+    justify-self:start;
+    margin-right:0;
+  }
+
+  /* If the phone is very narrow, stack the actions cleanly instead of allowing overlap. */
+  @media (max-width:380px){
+    .class-card{
+      grid-template-columns:48px minmax(0,1fr);
+      gap:10px;
+      padding:12px;
+    }
+    .class-card .tile{width:48px;height:48px;}
+
+  }
+}
