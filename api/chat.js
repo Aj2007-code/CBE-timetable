@@ -12,6 +12,10 @@ function tm(h, m) { return h * 60 + m; }
 const pad = n => (n < 10 ? '0' + n : '' + n);
 
 const SEMESTER_START = new Date(2026, 6, 28); 
+// Mid-sem exams (21-26 Sep) + break (27 Sep - 4 Oct) 2026: no classes / labs / attendance; classes resume Mon 5 Oct.
+const BREAK_START_ISO = "2026-09-21";
+const BREAK_END_ISO = "2026-10-04";
+function isBreakIso(iso) { return iso >= BREAK_START_ISO && iso <= BREAK_END_ISO; }
 const ATT_THRESHOLD = 75;
 const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
@@ -182,7 +186,8 @@ function sessionSig(s) { return s.code + "|" + s.start + "|" + s.room; }
 function scheduleForDate(weekSchedule, globalOverrides, dayOverrides, date, roll) {
   const dow = date.getDay();
   const iso = isoDate(date);
-  let list = weekSchedule.filter(s => s.day === dow);
+  const onBreak = isBreakIso(iso);
+  let list = onBreak ? [] : weekSchedule.filter(s => s.day === dow);
   const gov = globalOverrides[iso];
   const ov = dayOverrides[iso];
   if (gov && gov.removed && gov.removed.length) {
@@ -199,7 +204,7 @@ function scheduleForDate(weekSchedule, globalOverrides, dayOverrides, date, roll
   if (ov && ov.extra && ov.extra.length) {
     list = list.concat(ov.extra.map(e => Object.assign({}, e, { day: dow, isExtra: true })));
   }
-  if (roll) {
+  if (roll && !onBreak) {
     const grp = fluidLabGroupOf(roll);
     const labSession = fluidLabSessionForDate(date, grp);
     if (labSession) list = list.concat([labSession]);
@@ -333,7 +338,7 @@ async function fetchSiteContext(rollNumber) {
     });
 
     let nextClass = null;
-    for (let dayOffset = 0; dayOffset <= 7 && !nextClass; dayOffset++) {
+    for (let dayOffset = 0; dayOffset <= 21 && !nextClass; dayOffset++) {
       const d = addDays(now, dayOffset);
       const list = scheduleForDate(weekSchedule, globalOverrides, dayOverrides, d, roll);
       const candidate = list.find(s => dayOffset > 0 || (now.getHours() * 60 + now.getMinutes()) < s.start);
@@ -341,7 +346,7 @@ async function fetchSiteContext(rollNumber) {
         nextClass = {
           code: candidate.code, name: courseNames[candidate.code] || candidate.code,
           type: candidate.type, room: candidate.room, start: fmtHM(candidate.start),
-          when: dayOffset === 0 ? 'today' : dayOffset === 1 ? 'tomorrow' : DAY_NAMES[d.getDay()],
+          when: dayOffset === 0 ? 'today' : dayOffset === 1 ? 'tomorrow' : `${DAY_NAMES[d.getDay()]} ${d.getDate()}/${d.getMonth() + 1}`,
         };
       }
     }
@@ -358,6 +363,7 @@ async function fetchSiteContext(rollNumber) {
           room: s.room, start: fmtHM(s.start), end: fmtHM(s.end), extra: !!(s.isExtra || s.isGlobalExtra),
           note: s.note || null,
         })),
+        breakDay: isBreakIso(isoDate(d)),
       });
     }
 
@@ -443,6 +449,8 @@ function formatSiteContext(site) {
       lines.push(`Today's schedule: no classes today.`);
     }
 
+    lines.push(`NO regular classes or labs from 21 Sep to 4 Oct 2026 (mid-sem exams 21-26 Sep, then mid-sem break 27 Sep-4 Oct); these days don't count toward attendance. Classes resume Monday 5 Oct 2026.`);
+
     if (site.nextClass) {
       const nc = site.nextClass;
       lines.push(`Next class: ${nc.code} (${nc.name}) ${nc.type} at ${nc.start} in ${nc.room}, ${nc.when}.`);
@@ -455,7 +463,7 @@ function formatSiteContext(site) {
       site.upcomingDays.forEach(day => {
         lines.push(`${day.label} (${day.date}):`);
         if (!day.sessions.length) {
-          lines.push(`  - no classes`);
+          lines.push(day.breakDay ? `  - no classes (mid-sem exams/break)` : `  - no classes`);
         } else {
           day.sessions.forEach(s => {
             lines.push(`  - ${s.start}-${s.end} ${s.code} (${s.name}) ${s.type} @ ${s.room}${s.extra ? ' [added for this day]' : ''}${s.note ? ' — ' + s.note : ''}`);

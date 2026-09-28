@@ -99,6 +99,14 @@
 
   const SEMESTER_START = new Date(2026, 6, 28); // 28 Jul 2026 (Tue)
 
+  // Mid-sem exams (21–26 Sep) + break (27 Sep – 4 Oct) 2026: no classes / labs, no attendance. Classes resume Mon 5 Oct.
+  const BREAK_START_ISO = "2026-09-21";
+  const EXAM_END_ISO    = "2026-09-26";
+  const BREAK_END_ISO   = "2026-10-04";
+  function breakLabel(iso){ return iso <= EXAM_END_ISO ? "Mid-sem exams" : "Mid-sem break"; }
+  const BREAK_RESUME_LABEL = "Mon, 5 Oct";
+  function isBreakIso(iso){ return iso >= BREAK_START_ISO && iso <= BREAK_END_ISO; }
+
   const SCHEDULE = [
     // Monday
     { day:1, start:tm(16,0), end:tm(16,55), code:"CB2102", type:"lecture", room:"R102" },
@@ -1909,7 +1917,8 @@ const MIDSEM_FULL = [
   function scheduleForDate(date){
     const dow = date.getDay();
     const iso = isoDate(date);
-    const base = scheduleForDay(dow);
+    const onBreak = isBreakIso(iso);
+    const base = onBreak ? [] : scheduleForDay(dow);
     const gov = globalOverrides[iso];
     const ov = dayOverrides[iso];
     let list = base;
@@ -1927,7 +1936,7 @@ const MIDSEM_FULL = [
     if(ov && ov.extra && ov.extra.length){
       list = list.concat(ov.extra.map(e => Object.assign({}, e, { day: dow, isExtra: true })));
     }
-    if(currentUser){
+    if(currentUser && !onBreak){
       const grp = fluidLabGroupOf(currentUser.roll);
       const labSession = fluidLabSessionForDate(date, grp);
       if(labSession) list = list.concat([labSession]);
@@ -2015,7 +2024,7 @@ const MIDSEM_FULL = [
     }
     let upcoming = todays.filter(s=>s.start > nowMin).sort((a,b)=>a.start-b.start)[0];
     if(upcoming) return { s:upcoming, offsetDays:0, status:"upcoming" };
-    for(let off=1; off<=7; off++){
+    for(let off=1; off<=21; off++){
       const list = scheduleForDate(addDays(now, off)).sort((a,b)=>a.start-b.start);
       if(list.length) return { s:list[0], offsetDays:off, status:"upcoming" };
     }
@@ -2035,12 +2044,19 @@ const MIDSEM_FULL = [
     const burette = document.getElementById('burette');
     const next = findNext();
     if(!next){
-      heroContent.innerHTML = `<div class="hero-empty">No 2nd-year classes on the books. Enjoy the Day.</div>`;
+      heroContent.innerHTML = isBreakIso(isoDate(now))
+        ? `<div class="hero-empty">${isoDate(now)<=EXAM_END_ISO?'📝':'🏖️'} ${breakLabel(isoDate(now))} — no classes or labs until ${BREAK_RESUME_LABEL}.</div>`
+        : `<div class="hero-empty">No 2nd-year classes on the books. Enjoy the Day.</div>`;
       burette.style.display="none";
       return;
     }
     const { s, offsetDays, status } = next;
-    const dayLabel = offsetDays===0 ? "Today" : offsetDays===1 ? "Tomorrow" : DAY_NAMES[(now.getDay()+offsetDays)%7];
+    const nextDate = addDays(now, offsetDays);
+    const dayLabel = offsetDays===0 ? "Today" : offsetDays===1 ? "Tomorrow"
+      : offsetDays>=7 ? nextDate.toLocaleDateString(undefined,{weekday:'short', day:'numeric', month:'short'})
+      : DAY_NAMES[nextDate.getDay()];
+    const breakBanner = isBreakIso(isoDate(now))
+      ? `<div class="break-banner">${isoDate(now)<=EXAM_END_ISO?'📝':'🏖️'} ${breakLabel(isoDate(now))} — no classes or labs until ${BREAK_RESUME_LABEL}</div>` : "";
 
     let targetDate;
     if(status==="ongoing"){
@@ -2051,7 +2067,7 @@ const MIDSEM_FULL = [
     const {h,m,s:sec} = countdownParts(targetDate.getTime());
     const cd = (h>0? pad(h)+":":"") + pad(m)+":"+pad(sec);
 
-    heroContent.innerHTML = `
+    heroContent.innerHTML = breakBanner + `
       <div class="hero-main">
         <div class="hero-tile ${s.type}">
           <div class="code">${tileCode(s.code)}</div>
@@ -2146,6 +2162,10 @@ const MIDSEM_FULL = [
     const list = scheduleForDate(dateForDow);
 
     if(list.length===0){
+      if(isBreakIso(isoDate(dateForDow))){
+        wrap.innerHTML = `<div class="empty-state"><div class="glyph"></div>${breakLabel(isoDate(dateForDow))} — no classes or labs.<br>Classes resume ${BREAK_RESUME_LABEL}.</div>`;
+        return;
+      }
       wrap.innerHTML = (dow===0||dow===6)
         ? `<div class="empty-state"><div class="glyph"></div> offline for the weekend.<br>No 2nd-year CBE sessions scheduled.</div>`
         : `<div class="empty-state"><div class="glyph"></div>Clear bench day — no 2nd-year classes.<br>Good day to catch up on notes.</div>`;
@@ -2223,7 +2243,7 @@ const MIDSEM_FULL = [
                 <span class="nm-wrap"><span class="nm-code">${s.code}</span>${nameSpan(s,'nm')}<span class="nm-dur">${fmtDuration(roundedSessionMinutes(s))}</span></span>
               </span>
               <span class="rm">${s.room}${s.isExtra ? ' · added' : ''}</span>
-            </div>`).join("") : `<div style="color:var(--text-faint); font-size:12.5px;">— no sessions —</div>`}
+            </div>`).join("") : `<div style="color:var(--text-faint); font-size:12.5px;">${isBreakIso(isoDate(dateForDay)) ? '— '+breakLabel(isoDate(dateForDay)).toLowerCase()+' —' : '— no sessions —'}</div>`}
         </div>
       </div>`;
     }
@@ -3126,7 +3146,7 @@ const MIDSEM_FULL = [
     document.getElementById('dateLabel').innerHTML = `${main}<span class="rel">${rel}${relExtra}</span>`;
 
     if(list.length===0){
-      wrap.innerHTML = `<div class="empty-state" style="padding:24px;">No sessions on this date.</div>` + editControls;
+      wrap.innerHTML = `<div class="empty-state" style="padding:24px;">${isBreakIso(isoDate(d)) ? breakLabel(isoDate(d))+' — no classes or labs. Classes resume '+BREAK_RESUME_LABEL+'.' : 'No sessions on this date.'}</div>` + editControls;
       bindDayEditControls(d);
       return;
     }
