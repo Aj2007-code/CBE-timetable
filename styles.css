@@ -1551,3 +1551,157 @@ footer{
   .tabs{border-radius:15px;}
 }
 
+/* =========================================================
+   UI STABILITY PATCH — overflow, wrapping & responsive safety
+   Visual/UI only. No application logic or component behavior
+   is changed.
+   ========================================================= */
+
+/* Prevent flex/grid children from forcing their parents wider. */
+.pyq-intro-top > div,
+.pyq-course-head > .pyq-course-title,
+.pyq-file-info{
+  min-width:0;
+}
+
+/* PYQ / Reference Books intro: long headings and subtitles must
+   stay inside the card at every viewport width. */
+.pyq-intro-top > div{
+  flex:1 1 auto;
+  max-width:100%;
+}
+.pyq-intro-title{
+  max-width:100%;
+  margin-top:0;
+  line-height:1.25;
+  overflow-wrap:anywhere;
+  word-break:normal;
+}
+.pyq-intro-sub{
+  max-width:100%;
+  overflow-wrap:anywhere;
+  word-break:normal;
+}
+.pyq-admin-link{
+  max-width:100%;
+  flex:0 0 auto;
+  line-height:1.3;
+}
+
+/* Course rows: keep long course names/codes from pushing the
+   count/chevron outside the rounded card. */
+.pyq-course-head{
+  min-width:0;
+}
+.pyq-course-code,
+.pyq-course-name{
+  max-width:100%;
+  overflow-wrap:anywhere;
+  word-break:normal;
+}
+.pyq-course-name{
+  white-space:normal;
+  overflow:hidden;
+  display:-webkit-box;
+  -webkit-box-orient:vertical;
+  -webkit-line-clamp:2;
+}
+.pyq-course-right{
+  min-width:0;
+}
+.pyq-course-count{
+  white-space:nowrap;
+}
+
+/* File rows: long uploaded filenames remain contained while
+   action controls retain their usable size. */
+.pyq-file-row{
+  min-width:0;
+}
+.pyq-file-name{
+  max-width:100%;
+  overflow-wrap:anywhere;
+  word-break:break-word;
+}
+.pyq-file-meta{
+  max-width:100%;
+  overflow-wrap:anywhere;
+  word-break:break-word;
+}
+.pyq-file-actions{
+  max-width:100%;
+}
+.pyq-file-actions a,
+.pyq-file-actions button{
+  white-space:nowrap;
+}
+
+/* General media safety: UI assets never create horizontal overflow. */
+img,
+svg,
+video,
+canvas,
+iframe{
+  max-width:100%;
+}
+
+/* Narrow screens: stack the intro action below the text instead of
+   compressing the heading into an unusable width. */
+@media (max-width:600px){
+  .pyq-intro-top{
+    align-items:stretch;
+    gap:10px;
+  }
+  .pyq-intro-top > div{
+    width:100%;
+  }
+  .pyq-admin-link{
+    align-self:flex-start;
+  }
+
+  .pyq-course-head{
+    align-items:flex-start;
+  }
+  .pyq-course-right{
+    gap:7px;
+  }
+
+  .pyq-file-row{
+    align-items:flex-start;
+    flex-wrap:wrap;
+    row-gap:8px;
+  }
+  .pyq-file-info{
+    flex:1 1 calc(100% - 45px);
+  }
+  .pyq-file-actions{
+    width:100%;
+    padding-left:27px;
+    flex-wrap:wrap;
+  }
+}
+
+/* Very narrow phones: allow the heading/actions to breathe. */
+@media (max-width:380px){
+  .pyq-intro{
+    padding:13px;
+  }
+  .pyq-intro-title{
+    font-size:15px;
+  }
+  .pyq-intro-sub{
+    font-size:11.5px;
+  }
+  .pyq-course-head{
+    padding:12px;
+    gap:8px;
+  }
+  .pyq-course-right{
+    gap:5px;
+  }
+  .pyq-course-count{
+    font-size:9.5px;
+    padding-left:7px;
+    padding-right:7px;
+  }
+}
