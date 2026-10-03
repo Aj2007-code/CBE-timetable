@@ -34,13 +34,22 @@ module.exports = async (req, res) => {
   const key = process.env.SUPABASE_ANON_KEY;
   if (!base || !key) { res.status(500).json({ error: 'Server not configured' }); return; }
 
-  // path comes from the rewrite; everything else in req.query is the real query string
+  // The path comes from the rewrite (__p). Vercel may also tack extra routing
+  // params onto the query, so only real PostgREST params are forwarded.
   const q = Object.assign({}, req.query || {});
-  let p = q.__p; delete q.__p;
+  let p = q.__p != null ? q.__p : q.path;
+  if (p == null) p = String(req.url || '').split('?')[0].replace(/^\/api\/sb\/?/, '');
   if (Array.isArray(p)) p = p.join('/');
   p = decodeURIComponent(String(p || ''));
+
+  const RESERVED = new Set(['select', 'order', 'limit', 'offset', 'on_conflict', 'columns', 'and', 'or', 'not']);
+  const OPVAL = /^(not\.)?(eq|neq|gt|gte|lt|lte|like|ilike|match|imatch|in|is|isdistinct|cs|cd|ov|sl|sr|nxr|nxl|adj|fts|plfts|phfts|wfts)[.(]/;
   const sp = new URLSearchParams();
-  Object.keys(q).forEach(k => [].concat(q[k]).forEach(v => sp.append(k, v)));
+  Object.keys(q).forEach(k => {
+    [].concat(q[k]).forEach(v => {
+      if (RESERVED.has(k) || OPVAL.test(String(v))) sp.append(k, v);
+    });
+  });
   const qs = sp.toString() ? '?' + sp.toString() : '';
 
   const segs = p.split('/').filter(Boolean);
