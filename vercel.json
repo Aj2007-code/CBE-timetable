@@ -1,0 +1,5 @@
+{
+  "rewrites": [
+    { "source": "/api/sb/:path*", "destination": "/api/sb?__p=:path*" }
+  ]
+}
