@@ -14,7 +14,7 @@
   const DAY_NAMES = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
   const DAY_SHORT = ["Su","Mo","Tu","We","Th","Fr","Sa"];
 
-  const SESSION_LOG_URL = "https://script.google.com/macros/s/AKfycbyU7zwzJ-IMB0JHVxlinK9Modtbp8NG7W_YC6b4F6Via_8RJUgVdz_JE4QDPxF4wIjd/exec";
+  const SESSION_LOG_URL = "/api/session-log";
   const SESSION_LOG_EXCLUDE = ["2501CB23","2501CB04","2501CB49","2501CB15","2501CB53","2501CB39","2501CB43","2501CB47","2503CB01","2501CB09","2501CB35","2501CB41","2503CB03","2501CB06","2501CB55","2501CB33","2501CB61","2501CB48","2503CB05","2501CB28","2501CB22","2501CB64","2501CB34","2501CB30","2501CB27","2501CB29","2501CB40","2501CB31","2501CB60","2501CB42"];
 
   const SessionTracker = (function(){
@@ -41,7 +41,6 @@
         } else {
           fetch(SESSION_LOG_URL, {
             method: "POST",
-            mode: "no-cors",
             headers: { "Content-Type": "text/plain;charset=utf-8" },
             body,
             keepalive: true
@@ -418,7 +417,7 @@ const MIDSEM_FULL = [
     AA:'var(--teal)', AB:'var(--teal)', BB:'var(--green)', BC:'var(--green)',
     CC:'var(--amber)', CD:'var(--amber)', DD:'var(--rose)', F:'var(--rose)'
   };
-  const SPI_SHEET_URL = "https://script.google.com/macros/s/AKfycbyZzh5TVusLQDYL6rOn9xVhpinAEqIty9dUS3qRAcgK4KmWqkXj9WFUA-qWacSoTbSB/exec";
+  const SPI_SHEET_URL = "/api/spi-sheet";
 
   function spiTheme(s){
     if(s >= 9) return { color:'var(--teal)',  label:'Outstanding' };
@@ -429,8 +428,8 @@ const MIDSEM_FULL = [
     return       { color:'var(--rose)',  label:'Below Avg' };
   }
   
-  const SUPABASE_URL = "https://ektzrezmwzhautdmbrwf.supabase.co";       
-  const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVrdHpyZXptd3poYXV0ZG1icndmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ4OTY1MzksImV4cCI6MjEwMDQ3MjUzOX0.IoVDIWNNqMzFFZUk_C2LV8Wm-cxBs3OM6Cp5bP2GTr4";  
+  // Supabase is reached through the server proxy (/api/sb); URL + key live in env vars.
+  const SUPABASE_URL = "/api/sb";
 
   const ADMIN_LOGIN_ROLL = "2501CB23";
   let ADMIN_TOKEN = null; 
@@ -487,7 +486,7 @@ const MIDSEM_FULL = [
     return !!(currentUser && currentUser.roll === ANNOUNCE_ADMIN_ROLL && adminTokenValid());
   }
   function announceHeaders(){
-    return { apikey: SUPABASE_ANON_KEY, Authorization: 'Bearer ' + SUPABASE_ANON_KEY, 'Content-Type': 'application/json' };
+    return Object.assign({ 'Content-Type': 'application/json' }, adminAuthHeader());
   }
   function escapeHtml(str){
     return String(str == null ? '' : str)
@@ -496,7 +495,7 @@ const MIDSEM_FULL = [
   }
   const Store = (function(){
     const hasRemote = !!(window.storage && typeof window.storage.get === 'function');
-    const hasSupabase = !!(SUPABASE_URL && SUPABASE_ANON_KEY);
+    const hasSupabase = !!SUPABASE_URL;
     const NS = 'cbe-timetable:';
 
     function lsRead(key){
@@ -515,11 +514,7 @@ const MIDSEM_FULL = [
     }
 
     function sbHeaders(){
-      return {
-        'apikey': SUPABASE_ANON_KEY,
-        'Authorization': 'Bearer ' + SUPABASE_ANON_KEY,
-        'Content-Type': 'application/json'
-      };
+      return Object.assign({ 'Content-Type': 'application/json' }, adminAuthHeader());
     }
     
     async function sbGetAttendance(roll){
@@ -2592,7 +2587,7 @@ const MIDSEM_FULL = [
   async function fetchPyqFiles(){
     try{
       const res = await fetch(`${SUPABASE_URL}/rest/v1/cbe_pyq_files?select=*&order=uploaded_at.desc`, {
-        headers: { apikey: SUPABASE_ANON_KEY, Authorization: 'Bearer ' + SUPABASE_ANON_KEY }
+        headers: {}
       });
       if(!res.ok) throw new Error('fetch failed: ' + res.status);
       const rows = await res.json();
@@ -2772,7 +2767,7 @@ const MIDSEM_FULL = [
   async function fetchBooksFiles(){
     try{
       const res = await fetch(`${SUPABASE_URL}/rest/v1/cbe_reference_books?select=*&order=created_at.desc`, {
-        headers: { apikey: SUPABASE_ANON_KEY, Authorization: 'Bearer ' + SUPABASE_ANON_KEY }
+        headers: {}
       });
       if(!res.ok) throw new Error('fetch failed: ' + res.status);
       const rows = await res.json();
@@ -3055,11 +3050,12 @@ const MIDSEM_FULL = [
     btn.disabled = true;
     msg.textContent = 'Saving…'; msg.className = 'spi-save-msg';
     try{
-      await fetch(SPI_SHEET_URL, {
-        method: 'POST', mode: 'no-cors',
+      const spiRes = await fetch(SPI_SHEET_URL, {
+        method: 'POST',
         headers: Object.assign({ 'Content-Type': 'application/json' }, adminAuthHeader()),
         body: JSON.stringify({ roll: currentUser.roll, name: currentUser.name, spi: spi.toFixed(2), grades, submittedAt: new Date().toISOString() })
       });
+      if(!spiRes.ok) throw new Error('spi save failed: ' + spiRes.status);
       msg.textContent = '✓ Result saved'; msg.className = 'spi-save-msg ok';
     }catch(e){
       msg.textContent = ' Could not save — check connection'; msg.className = 'spi-save-msg err';

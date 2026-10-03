@@ -3,7 +3,7 @@
 // The real password never ships in the client bundle. Set it as a Vercel
 // environment variable (Project Settings -> Environment Variables):
 //
-//   ADMIN_PASSWORD       = 052207        (or whatever you rotate it to)
+//   ADMIN_PASSWORD       = <your admin password>
 //   ADMIN_TOKEN_SECRET    = <any long random string>   (optional but recommended;
 //                            falls back to ADMIN_PASSWORD if unset)
 //

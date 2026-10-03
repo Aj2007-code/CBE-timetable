@@ -1,4 +1,4 @@
-const SUPABASE_URL = "https://ektzrezmwzhautdmbrwf.supabase.co";
+const SUPABASE_URL = process.env.SUPABASE_URL; // set in Vercel env vars
 const BUCKET = "books";
 const MAX_BYTES = 50 * 1024 * 1024; 
 const { requireAdmin, ADMIN_ROLL } = require("./_adminAuth");
