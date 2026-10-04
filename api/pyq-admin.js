@@ -1,4 +1,4 @@
-const SUPABASE_URL = process.env.SUPABASE_URL; // set in Vercel env vars
+const SUPABASE_URL = process.env.SUPABASE_URL; 
 const BUCKET = "pyq";
 const MAX_BYTES = 100  * 1024 * 1024; 
 const { requireAdmin, ADMIN_ROLL } = require("./_adminAuth");

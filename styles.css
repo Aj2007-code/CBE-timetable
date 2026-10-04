@@ -1041,7 +1041,6 @@
     .chat-fab{ right:16px; bottom:16px; }
   }
 
-  /* headings + big numerals use the display face; everything else stays in the text face */
   .brand-name, .login-title, .modal-title, .pyq-intro-title, .spi-intro-title{
     font-family:var(--display); font-weight:600; letter-spacing:-0.01em;
   }
@@ -1056,7 +1055,6 @@
   .tile.lecture, .cc-tag.lecture{background:var(--teal-dim);}
   .hero-tile.lecture, .hero-tile.lab, .hero-tile.hss, .hero-tile.mba, .hero-tile.extra{background:var(--surface);}
 
-/* UI-only mobile attendance layout fixes */
 @media (max-width: 600px){
   .class-card{
     position:relative;
@@ -1083,7 +1081,6 @@
     align-items:start;
   }
 
-  /* Keep the course information together and give the action buttons their own row. */
   .class-card .cc-top,
   .class-card .cc-meta,
   .class-card .cc-status{
@@ -1125,8 +1122,6 @@
     min-width:0;
   }
 
-  /* The three admin actions always remain in semantic order:
-     remove for me → cancel for everyone → reschedule for everyone. */
   .class-card .day-edit-remove:not(.admin-remove):not(.admin-reschedule),
   .class-card .day-edit-remove.admin-remove,
   .class-card .day-edit-remove.admin-reschedule{
@@ -1135,7 +1130,6 @@
     margin-right:0;
   }
 
-  /* If the phone is very narrow, stack the actions cleanly instead of allowing overlap. */
   @media (max-width:380px){
     .class-card{
       grid-template-columns:48px minmax(0,1fr);
@@ -1148,12 +1142,6 @@
 }
 
 
-/* =========================================================
-   VISUAL REDESIGN — LIGHT AQUA / MINT
-   Visual-only layer. No application logic or component behavior
-   is changed. This block intentionally overrides the original
-   visual tokens and component presentation.
-   ========================================================= */
 
 :root{
   --bg:#f2fbf8;
@@ -1518,7 +1506,6 @@ footer{
 }
 .made-by{color:#76918e!important;}
 
-/* Timetable cards: make each course feel like a clean information tile. */
 .session-card,.class-card,.timeline-item,.week-card,.week-day,.course-block{
   border-color:#d4e8e4!important;
 }
@@ -1533,7 +1520,6 @@ footer{
   border-radius:999px!important;
 }
 
-/* Responsive polish without changing layout logic. */
 @media(max-width:700px){
   .wrap{padding:14px 12px 68px;}
   .topbar{padding:13px;border-radius:19px;}
@@ -1551,21 +1537,12 @@ footer{
   .tabs{border-radius:15px;}
 }
 
-/* =========================================================
-   UI STABILITY PATCH — overflow, wrapping & responsive safety
-   Visual/UI only. No application logic or component behavior
-   is changed.
-   ========================================================= */
-
-/* Prevent flex/grid children from forcing their parents wider. */
 .pyq-intro-top > div,
 .pyq-course-head > .pyq-course-title,
 .pyq-file-info{
   min-width:0;
 }
 
-/* PYQ / Reference Books intro: long headings and subtitles must
-   stay inside the card at every viewport width. */
 .pyq-intro-top > div{
   flex:1 1 auto;
   max-width:100%;
@@ -1588,8 +1565,6 @@ footer{
   line-height:1.3;
 }
 
-/* Course rows: keep long course names/codes from pushing the
-   count/chevron outside the rounded card. */
 .pyq-course-head{
   min-width:0;
 }
@@ -1613,8 +1588,6 @@ footer{
   white-space:nowrap;
 }
 
-/* File rows: long uploaded filenames remain contained while
-   action controls retain their usable size. */
 .pyq-file-row{
   min-width:0;
 }
@@ -1636,7 +1609,6 @@ footer{
   white-space:nowrap;
 }
 
-/* General media safety: UI assets never create horizontal overflow. */
 img,
 svg,
 video,
@@ -1645,8 +1617,6 @@ iframe{
   max-width:100%;
 }
 
-/* Narrow screens: stack the intro action below the text instead of
-   compressing the heading into an unusable width. */
 @media (max-width:600px){
   .pyq-intro-top{
     align-items:stretch;
@@ -1680,8 +1650,6 @@ iframe{
     flex-wrap:wrap;
   }
 }
-
-/* Very narrow phones: allow the heading/actions to breathe. */
 @media (max-width:380px){
   .pyq-intro{
     padding:13px;

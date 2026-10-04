@@ -107,7 +107,6 @@ input::placeholder{color:var(--faint);font-family:"Instrument Sans",sans-serif}
   .tabs{position:sticky;top:8px;z-index:20}
 }
 
-/* Visual-only polish */
 body{background:radial-gradient(circle at 8% 0%,rgba(111,219,201,.14),transparent 28rem),radial-gradient(circle at 95% 8%,rgba(112,170,230,.11),transparent 24rem),linear-gradient(180deg,#f8fdfc,#f2fbf8 55%,#edf9f7);}
 .wrap{max-width:1080px;padding-top:22px;}
 .controls,.room-controls{border-color:#d2e8e4;background:rgba(255,255,255,.88);box-shadow:0 14px 35px rgba(24,79,76,.07);backdrop-filter:blur(12px);}
@@ -247,7 +246,6 @@ function compareSchedules(dateValue,slotValue){
     });
   });
 
-  // Only show slots shared by at least two selected roll numbers.
   const shared=[...buckets.values()].filter(b=>new Set(b.entries.map(x=>x.roll)).size>=2)
     .sort((a,b)=>a.dateIndex-b.dateIndex||a.slot-b.slot);
 
@@ -314,8 +312,6 @@ rollInput.addEventListener('keydown',e=>{
 rollInput.addEventListener('blur',()=>setTimeout(()=>suggestions.classList.remove('open'),120));
 dateFilter.addEventListener('change',render);slotFilter.addEventListener('change',render);
 
-
-/* Room schedule tab: reverse the roll-based database into date → slot → room → courses. */
 const roomSearch = document.getElementById('roomSearch');
 const roomDateFilter = document.getElementById('roomDateFilter');
 const roomSlotFilter = document.getElementById('roomSlotFilter');

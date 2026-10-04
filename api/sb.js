@@ -1,11 +1,3 @@
-// Supabase proxy. The browser calls /api/sb/rest/v1/<table>?...
-// vercel.json rewrites that to /api/sb?__p=rest/v1/<table>&...
-// and this function forwards it to Supabase with the key added server-side,
-// so the project URL and key never appear in the page or the Network tab.
-//
-// Env vars: SUPABASE_URL, SUPABASE_ANON_KEY
-// Writes to admin-only tables also require a valid x-admin-token.
-
 const { requireAdmin } = require('./_adminAuth');
 
 const TABLES = {
@@ -34,8 +26,6 @@ module.exports = async (req, res) => {
   const key = process.env.SUPABASE_ANON_KEY;
   if (!base || !key) { res.status(500).json({ error: 'Server not configured' }); return; }
 
-  // The path comes from the rewrite (__p). Vercel may also tack extra routing
-  // params onto the query, so only real PostgREST params are forwarded.
   const q = Object.assign({}, req.query || {});
   let p = q.__p != null ? q.__p : q.path;
   if (p == null) p = String(req.url || '').split('?')[0].replace(/^\/api\/sb\/?/, '');
@@ -55,7 +45,6 @@ module.exports = async (req, res) => {
   const segs = p.split('/').filter(Boolean);
   if (segs.some(s => s === '..' || s === '.')) { res.status(400).json({ error: 'Bad path' }); return; }
 
-  // public file downloads -> redirect to the public bucket URL
   if (segs[0] === 'storage' && segs[1] === 'v1' && segs[2] === 'object' &&
       segs[3] === 'public' && BUCKETS.includes(segs[4]) && req.method === 'GET') {
     res.setHeader('Cache-Control', 'public, max-age=300');

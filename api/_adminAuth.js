@@ -1,13 +1,3 @@
-// Shared helper — import this into any /api/*.js endpoint that should be
-// admin-only (pyq-admin.js, books-admin.js, etc).
-//
-// const { requireAdmin } = require('./_adminAuth');
-// ...inside your handler, before doing anything else:
-//   if (!requireAdmin(req)) {
-//     res.status(401).json({ ok:false, error: 'Admin session required' });
-//     return;
-//   }
-
 const crypto = require('crypto');
 
 const ADMIN_ROLL = "2501CB23";
@@ -37,8 +27,6 @@ function verifyAdminToken(token) {
   }
 }
 
-// Reads the token from the standard place the frontend sends it
-// (x-admin-token header) and validates it.
 function requireAdmin(req) {
   const token = req.headers['x-admin-token'];
   return verifyAdminToken(token);

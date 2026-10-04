@@ -1,10 +1,7 @@
-// POST /api/session-log  -> forwards the body to the Google Apps Script web app.
-// Env var: SESSION_LOG_URL  (the https://script.google.com/macros/s/.../exec URL)
-
 module.exports = async (req, res) => {
   if (req.method !== 'POST') { res.status(405).end(); return; }
   const url = process.env.SESSION_LOG_URL;
-  if (!url) { res.status(204).end(); return; }   // not configured -> silently skip
+  if (!url) { res.status(204).end(); return; }   
 
   let body = req.body;
   if (body == null) body = '';
@@ -17,6 +14,6 @@ module.exports = async (req, res) => {
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       body,
     });
-  } catch (e) { /* logging is best-effort */ }
+  } catch (e) { }
   res.status(204).end();
 };

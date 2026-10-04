@@ -166,9 +166,6 @@
 
   const LAB_SPLIT_COURSES = new Set(["CB2102", "CB2103"]); 
 
-  // ---- CB2102 Fluid Mechanics Lab: 16 groups, alternating weeks ----
-  // Groups 1-8 ("set A") and Groups 9-16 ("set B") take the lab on
-  // alternating weeks. Roster sourced from CB2102_LAB_Group_list.pdf.
   const FLUID_LAB_GROUPS = {
     1: ["2501CB01", "2501CB02", "2501CB03", "2501CB04", "2501CB05", "2501CT07", "2501CT26"],
     2: ["2501CB06", "2501CB07", "2501CB08", "2501CB09", "2501CB10", "2501CT19", "2501CT23"],
@@ -428,7 +425,6 @@ const MIDSEM_FULL = [
     return       { color:'var(--rose)',  label:'Below Avg' };
   }
   
-  // Supabase is reached through the server proxy (/api/sb); URL + key live in env vars.
   const SUPABASE_URL = "/api/sb";
 
   const ADMIN_LOGIN_ROLL = "2501CB23";
@@ -1799,7 +1795,7 @@ const MIDSEM_FULL = [
   function _queuePersist(fn){
     let chain = Promise.resolve();
     return function(){
-      chain = chain.then(fn, fn); // run in order even if a prior save failed
+      chain = chain.then(fn, fn); 
       return chain;
     };
   }
@@ -1853,13 +1849,6 @@ const MIDSEM_FULL = [
     return rem >= 55 ? (hours+1)*60 : hours*60 + rem;
   }
 
-  // ---- Double-attendance rule ----
-  // The 2-hour lecture blocks for CB2104 (Chemical Process Calculations,
-  // Thu 16:00-18:00) and CB2102 (Fluid Mechanics, Wed 15:00-16:55) are each
-  // recorded as TWO attendance units (not one) — this matches how the
-  // department logs a combined lecture+tutorial double period. Only these
-  // specific ~2-hour lecture sessions qualify; CB2102's 1-hour Mon/Fri
-  // lectures and its separately-tracked lab sessions are unaffected.
   const DOUBLE_ATTENDANCE_CODES = new Set(["CB2102", "CB2104"]);
   function isDoubleAttendanceSession(s){
     return DOUBLE_ATTENDANCE_CODES.has(s.code) && s.type === "lecture" && roundedSessionMinutes(s) === 120;
