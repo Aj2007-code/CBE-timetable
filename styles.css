@@ -2131,3 +2131,15 @@ html[data-theme="dark"] ::-webkit-scrollbar-thumb:hover{background:#254440;}
   background:linear-gradient(145deg,#4d6b68,#243a38); color:#bfe6de;
 }
 html[data-theme="dark"] .theme-toggle{background:#16302c; border-color:#1f433e;}
+
+
+/* theme toggle pinned to top-right of the user bar */
+.user-bar > .theme-toggle{order:2;}
+.user-bar > .user-bar-actions{order:3;}
+@media (max-width:480px){
+  .user-bar{position:relative;}
+  .user-bar > .theme-toggle{
+    position:absolute; top:12px; right:12px; z-index:2; margin:0;
+  }
+  .user-hello{padding-right:56px;}
+}
