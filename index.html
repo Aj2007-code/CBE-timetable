@@ -8,6 +8,15 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=Unbounded:wght@500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="styles.css">
+<script>
+  (function(){
+    try{
+      var t = localStorage.getItem('cbe-theme');
+      if(!t){ t = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'; }
+      if(t === 'dark') document.documentElement.setAttribute('data-theme','dark');
+    }catch(e){}
+  })();
+</script>
 </head>
 <body>
 
@@ -49,6 +58,9 @@
       <a class="room-btn" id="roomBtn" href="room.html" title="Mid-Sem room finder">⌖ Rooms</a>
       <button class="about-btn" id="aboutBtn">ⓘ About</button>
       <button class="hss-btn" id="hssBtn">HSS: <span id="hssBtnLabel">not set</span></button>
+      <button class="theme-toggle" id="themeToggle" type="button" title="Toggle dark mode" aria-label="Toggle dark mode" aria-pressed="false">
+        <span class="knob">☀</span>
+      </button>
       <button class="logout-btn" id="logoutBtn">Switch user</button>
     </div>
   </div>
