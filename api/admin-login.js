@@ -1,16 +1,3 @@
-// POST /api/admin-login  { roll, password }  ->  { ok, token, expiresAt }
-//
-// The real password never ships in the client bundle. Set it as a Vercel
-// environment variable (Project Settings -> Environment Variables):
-//
-//   ADMIN_PASSWORD       = <your admin password>
-//   ADMIN_TOKEN_SECRET    = <any long random string>   (optional but recommended;
-//                            falls back to ADMIN_PASSWORD if unset)
-//
-// On success this returns a short-lived signed token. The frontend stores it
-// and sends it back as the `x-admin-token` header on admin actions; other
-// endpoints verify it with `requireAdmin()` from ./_adminAuth.js.
-
 const crypto = require('crypto');
 const { ADMIN_ROLL } = require('./_adminAuth');
 
@@ -18,9 +5,6 @@ const WINDOW_MS = 10 * 60 * 1000; // 10 minutes
 const MAX_ATTEMPTS = 5;
 const TOKEN_TTL_MS = 12 * 60 * 60 * 1000; // 12 hours
 
-// Best-effort in-memory rate limit. A cold start or multi-region deploy
-// resets this, so treat it as a speed bump on top of a real password check,
-// not a hard guarantee.
 const attempts = new Map();
 
 function tooManyAttempts(ip) {

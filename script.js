@@ -217,6 +217,14 @@
     const mySet = fluidLabSetOf(groupNum);
     const isExceptionWeek = isoDate(fluidLabMondayOf(date)) === isoDate(FLUID_LAB_ANCHOR_MONDAY);
 
+    // Group 1 (2501CB01–05, ...): Fri 23 Oct lab is held Mon 12 Oct, 10 AM–12 PM instead
+    if(groupNum === 1){
+      if(iso === "2026-10-23") return null;
+      if(iso === "2026-10-12"){
+        return { day:1, start:tm(10,0), end:tm(12,0), code:"CB2102", type:"lab", room:"Lab", note:"Shifted from Fri 23 Oct" };
+      }
+    }
+
     if(iso === FLUID_LAB_EXCEPTION_ISO && mySet === "A"){
       return { day:1, start:tm(11,0), end:tm(13,0), code:"CB2102", type:"lab", room:"Lab", note:"Shifted from Friday — this week only" };
     }
@@ -1886,6 +1894,7 @@ const MIDSEM_FULL = [
     return DOUBLE_ATTENDANCE_CODES.has(s.code) && s.type === "lecture" && roundedSessionMinutes(s) === 120;
   }
   function sessionAttendanceWeight(s){
+    if(s.weight) return s.weight;
     return isDoubleAttendanceSession(s) ? 2 : 1;
   }
   function fmtDuration(mins){
@@ -1906,6 +1915,22 @@ const MIDSEM_FULL = [
   let now = new Date();
 
   function scheduleForDay(dow){ return PERSONAL_SCHEDULE.filter(s=>s.day===dow); }
+
+  // CPC (CB2104): Tuesday class moved to Monday 2:30–4:00 PM (counts as 2 attendance) from Mon 12 Oct onwards
+  const CPC_RESHUFFLE_FROM_ISO = "2026-10-12";
+  function baseScheduleForDate(date){
+    const dow = date.getDay();
+    const iso = isoDate(date);
+    let list = scheduleForDay(dow);
+    if(iso >= CPC_RESHUFFLE_FROM_ISO){
+      if(dow === 2){
+        list = list.filter(s => !(s.code === "CB2104" && s.type === "lecture"));
+      } else if(dow === 1){
+        list = list.concat([{ day:1, start:tm(14,30), end:tm(16,0), code:"CB2104", type:"lecture", room:"LT001", weight:2, tag:"rescheduled" }]);
+      }
+    }
+    return list;
+  }
 
   function sessionSig(s){ return s.code+"|"+s.start+"|"+s.room; }
 
@@ -1934,7 +1959,7 @@ const MIDSEM_FULL = [
     const dow = date.getDay();
     const iso = isoDate(date);
     const onBreak = isBreakIso(iso);
-    const base = onBreak ? [] : scheduleForDay(dow);
+    const base = onBreak ? [] : baseScheduleForDate(date);
     const gov = globalOverrides[iso];
     const ov = dayOverrides[iso];
     let list = base;
@@ -1968,7 +1993,7 @@ const MIDSEM_FULL = [
     const gSet = new Set((gov && gov.removed) || []);
     const pSet = new Set((ov && ov.removed) || []);
     if(!gSet.size && !pSet.size) return [];
-    return scheduleForDay(dow)
+    return baseScheduleForDate(date)
       .filter(s => gSet.has(sessionSig(s)) || pSet.has(sessionSig(s)))
       .map(s => Object.assign({}, s, { _global: gSet.has(sessionSig(s)), _personal: pSet.has(sessionSig(s)) }));
   }
