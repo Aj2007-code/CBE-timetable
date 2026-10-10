@@ -217,8 +217,8 @@
     const mySet = fluidLabSetOf(groupNum);
     const isExceptionWeek = isoDate(fluidLabMondayOf(date)) === isoDate(FLUID_LAB_ANCHOR_MONDAY);
 
-    // Group 1 (2501CB01–05, ...): Fri 23 Oct lab is held Mon 12 Oct, 10 AM–12 PM instead
-    if(groupNum === 1){
+    // Set A (groups 1–8): Fri 23 Oct lab is held Mon 12 Oct, 10 AM–12 PM instead
+    if(mySet === "A"){
       if(iso === "2026-10-23") return null;
       if(iso === "2026-10-12"){
         return { day:1, start:tm(10,0), end:tm(12,0), code:"CB2102", type:"lab", room:"Lab", note:"Shifted from Fri 23 Oct" };
