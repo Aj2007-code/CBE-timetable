@@ -1889,14 +1889,22 @@ const MIDSEM_FULL = [
     return rem >= 55 ? (hours+1)*60 : hours*60 + rem;
   }
 
-  const DOUBLE_ATTENDANCE_CODES = new Set(["CB2102", "CB2104"]);
-  function isDoubleAttendanceSession(s){
-    return DOUBLE_ATTENDANCE_CODES.has(s.code) && s.type === "lecture" && roundedSessionMinutes(s) === 120;
-  }
-  function sessionAttendanceWeight(s){
-    if(s.weight) return s.weight;
-    return isDoubleAttendanceSession(s) ? 2 : 1;
-  }
+  // CB2101 (Intro to ChemE) always counts as 1, even if it runs 2 hrs
+const SINGLE_ATTENDANCE_CODES = new Set(["CB2101"]);
+
+// Any non-lab session longer than 1 hr counts as 2 attendance
+function isDoubleAttendanceSession(s){
+  if(SINGLE_ATTENDANCE_CODES.has(s.code)) return false;
+  if(s.type === "lab") return false;
+  return roundedSessionMinutes(s) > 60;
+}
+
+function sessionAttendanceWeight(s){
+  if(SINGLE_ATTENDANCE_CODES.has(s.code)) return 1;
+  if(s.weight) return s.weight;
+  return isDoubleAttendanceSession(s) ? 2 : 1;
+}
+
   function fmtDuration(mins){
     const h = Math.floor(mins/60), m = mins % 60;
     if(h>0 && m>0) return `${h}h ${m}m`;
