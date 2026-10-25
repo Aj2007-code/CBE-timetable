@@ -1,6 +1,3 @@
-// POST /api/spi-sheet  -> forwards the SPI result to the Google Apps Script web app.
-// Env var: SPI_SHEET_URL
-
 module.exports = async (req, res) => {
   if (req.method !== 'POST') { res.status(405).json({ ok: false }); return; }
   const url = process.env.SPI_SHEET_URL;

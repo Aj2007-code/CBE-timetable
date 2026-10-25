@@ -98,13 +98,26 @@
 
   const SEMESTER_START = new Date(2026, 6, 28); // 28 Jul 2026 (Tue)
 
-  // Mid-sem exams (21–26 Sep) + break (27 Sep – 4 Oct) 2026: no classes / labs, no attendance. Classes resume Mon 5 Oct.
-  const BREAK_START_ISO = "2026-09-21";
-  const EXAM_END_ISO    = "2026-09-26";
-  const BREAK_END_ISO   = "2026-10-04";
-  function breakLabel(iso){ return iso <= EXAM_END_ISO ? "Mid-sem exams" : "Mid-sem break"; }
-  const BREAK_RESUME_LABEL = "Mon, 5 Oct";
-  function isBreakIso(iso){ return iso >= BREAK_START_ISO && iso <= BREAK_END_ISO; }
+  // No-class periods: no classes / labs, no attendance counted.
+  // Mid-sem exams (21-26 Sep) + break (27 Sep - 4 Oct) 2026, then End-sem exams (21-30 Nov) + semester break.
+  const BREAK_RANGES = [
+    { start:"2026-09-21", end:"2026-09-26", label:"Mid-sem exams",  resume:"Mon, 5 Oct" },
+    { start:"2026-09-27", end:"2026-10-04", label:"Mid-sem break",  resume:"Mon, 5 Oct" },
+    { start:"2026-11-21", end:"2026-11-30", label:"End-sem exams",  resume:null },
+    { start:"2026-12-01", end:"2027-01-31", label:"Semester break", resume:null },
+  ];
+  function breakRangeFor(iso){ return BREAK_RANGES.find(r => iso >= r.start && iso <= r.end) || null; }
+  function isBreakIso(iso){ return !!breakRangeFor(iso); }
+  function breakLabel(iso){ const r = breakRangeFor(iso); return r ? r.label : ""; }
+  function breakMessage(iso){
+    const r = breakRangeFor(iso);
+    if(!r) return "";
+    return r.resume ? `${r.label} — no classes or labs until ${r.resume}` : `${r.label} — no classes or labs`;
+  }
+  function breakResumeSentence(iso){
+    const r = breakRangeFor(iso);
+    return r && r.resume ? `Classes resume ${r.resume}.` : "";
+  }
 
   const SCHEDULE = [
     // Monday
@@ -258,120 +271,53 @@
     ]
   };
 
-  // ===== Mid-semester exam datesheet (20–28 Sep 2026) =====
-  const MIDSEM_SLOT_MORNING = "10:30 AM – 12:30 PM";
-  const MIDSEM_SLOT_EVENING = "3:30 PM – 5:30 PM";
+  // ===== End-semester exam datesheet (21–30 Nov 2026) =====
+  const ENDSEM_SLOTS = { morning: "9:30 AM – 12:30 PM", evening: "3:00 PM – 6:00 PM" };
+  const ENDSEM_CORE = ["CB2101","CB2102","CB2103","CB2104","CB2105"];
 
-  const MIDSEM_CORE = [
-    { code:"CB2101", date:"2026-09-21", day:"Monday" },
-    { code:"CB2102", date:"2026-09-23", day:"Wednesday" },
-    { code:"CB2105", date:"2026-09-24", day:"Thursday" },
-    { code:"CB2103", date:"2026-09-25", day:"Friday" },
-    { code:"CB2104", date:"2026-09-26", day:"Saturday",
-      note:"" },
+  const ENDSEM_FULL = [
+    { date:"2026-11-21", day:"Saturday",
+      morning:"CH001, CH4101, CS1101, EC5105, HS2101, MA4107, MA5101, PH4101, PH5101",
+      evening:"CE4106, CE6133, EC4105, HS3102, HS5111, HS7101, HS7103, MA7102" },
+    { date:"2026-11-22", day:"Sunday",
+      morning:"CB2101, CE2101, CH1101, CH2101, CH4102, CS2101, EC2101, EP2101, HS2103, MA2101, MA4108, ME2103, MM2101, PH1101",
+      evening:"CB3101, CE3101, CH3101, CS3101, CS6112, EC3101, EC4102, EP3104, HS3101, HS7104, MA3101, MA6109, ME3101, ME6113, MM3101, MM4102, MM6105, PH6124" },
+    { date:"2026-11-23", day:"Monday",
+      morning:"CB4107, HS001, HS2110, HS2111, HS2112, HS4111, MA5102, PH4107, PH5102",
+      evening:"CB3106, CB5101, CE5101, CE5104, CE5107, CE5108/CE4104/CE6119, CE5111, CS3106, CS5102, EC5102, EC5106, HS3108, HS7105, MA4103, MC5102, ME3106, ME5101, MM3106, MM4105, MM5101, PH4109, PH7104" },
+    { date:"2026-11-24", day:"Tuesday", holiday:"Guru Nanak Jayanti (Institute Holiday)" },
+    { date:"2026-11-25", day:"Wednesday",
+      morning:"CB6104, CE2102, CH2104/CB2102, CH4103, CH5102, CS2102, EC2102, EP2102, HS2105/MA2102, MA1101, MA4109, MA5103, ME2102, MM2102, PH4103",
+      evening:"CB3102, CB4103, CE3102, CE5106/CE6135, CE6116/CE4101, CH3102, CH4108, CH7103, CS3102, EC3102, EC5101, EE3102, EE5101, EP3102, HS3111, HS7106, MA3102, MC5101/CS5101, ME3102, ME5103, ME6104, MH5101, MM3102, MM5102" },
+    { date:"2026-11-26", day:"Thursday",
+      morning:"CB2105, CH2102, CH5103, CS2103, CS4110/CS6101/MA5104, EE2102, HS2104, HS2114, MA4106/MA5106, PH4102, PH5105, PH5111, PH5113/PH6119",
+      evening:"CB3103, CB5102, CE3103, CE5102, CE5105, CE5109/CE6124, CE5112, CH3103, CH4109, CS3103, EC3103, EC5104, EC6101, EE3101, EE5103, HS3103, MA3103, ME3103, ME5106, MM3103, MM5103, ME4105, ME4106" },
+    { date:"2026-11-27", day:"Friday",
+      morning:"CB2103, CE2103, CH2103, CH4104, CH5105, EC2103, EE1101, EE2103, EP2103, HS2102, MA001, MA2103, MA4110, ME1102, ME2101, MM2103, PH4104",
+      evening:"CB3104, CB4108, CE3104, CE5103, CE5110/CE6120, CE5113, CH3104, CS3104, CS3105, CS4113, EC3104, EC5103, EE5102, EP3101, HS3104, MA3104, MA6106, ME3104, ME4103, ME5102, ME5105, ME5108, MM3104, MM4107, MM5104, PH4110" },
+    { date:"2026-11-28", day:"Saturday",
+      morning:"CE2104, CH2105/CB2104, CH4105, CS2104, EE2101, EP2104, HS1101, HS2108, MA2104, MA4111, ME2104, MM2104, PH4105",
+      evening:"CB3105, CE6109, EC5116/EC5110, EP3105, HS4118, HS4119, MA3105, ME3105, ME6103/EE6117" },
+    { date:"2026-11-29", day:"Sunday",
+      morning:"CE1101, CE6128, CS2105, EC3105, HS4123, MM2105",
+      evening:"CB6105, CE6130, CS6109, EC5113/EC5119, EE6104, EP3103, ME6109, ME6111" },
+    { date:"2026-11-30", day:"Monday",
+      morning:"HS2115, HS4109, MA2105",
+      evening:"CE6101, CE6125, CS4101/CS6103, EC5114, ME4101, ME6102/ME4102, ME6106, ME6107, MM6101" },
   ];
-  const MIDSEM_HSS_DATE = "2026-09-22";
-  const MIDSEM_HSS_DAY = "Tuesday";
 
-  const MIDSEM_MBA_DATE = "2026-09-20";
-  const MIDSEM_MBA_DAY = "Sunday";
+  // "CH2104/CB2102" -> ["CH2104","CB2102"]
+  function endsemTokens(str){ return (str || "").split(', ').flatMap(t => t.split('/')); }
 
-const MIDSEM_HS_DATE = "2026-09-22";
-const MIDSEM_HS_DAY = "Tuesday";
-
-
-const MIDSEM_FULL = [
-
-  {
-    date: "2026-09-20",
-    day: "Sunday",
-
-    morning: "CH001, CH4101, CS1101, EC5105, HS2101, MA4107, MA5101, PH4101, PH5101",
-
-    evening: "CE6133, EC4105, HS3102, HS5111, HS7101, HS7103, MA7102"
-  },
-
-
-  {
-    date: "2026-09-21",
-    day: "Monday",
-
-    morning: "CB2101, CE2101, CH1101, CH2101, CH4102, CS2101, EC2101, EP2101, HS2102, MA2101, MA4108, ME2103, MM2101, PH1101",
-
-    evening: "CB3101, CE3101, CH3101, CS3101, CS6112, EC3101, EP3101, EP4105, HS3101, HS7104, MA3101, MA6109, ME3101, ME6113, MM3101, MM4102, MM6105, PH6124"
-  },
-
-
-  {
-    date: "2026-09-22",
-    day: "Tuesday",
-
-    morning: "CB4107, HS001, HS2110, HS2111, HS2112, HS4111, MA5102, PH4107, PH5102",
-
-    evening: "CB3106, CB5101, CE5101, CE5104, CE5107, CE5108/CE4104/CE6119, CE5111, CE6135, CS3106, CS5102, EC5102, EC5106, HS3108, HS7105, MC5102, ME3106, ME5101, MM3106, MM4105, MM5101, PH4109, PH7104"
-  },
-
-
-  {
-    date: "2026-09-23",
-    day: "Wednesday",
-
-    morning: "CB2102/CH2104, CB6104, CE2102, CH4103, CH5102, CS2102, EC2102, EP2102, MA1101, MA2102/HS2105, MA4109, MA5103, ME2102, MM2102, PH4103",
-
-    evening: "CB3102, CE3102, CE5106, CE6116/CE4101, CH3102, CH4108, CH7103, CS3102, EC3102, EC5101, EE3102, EE5101, EP3102, HS3111, HS7106, MA3102, MC5101/CS5101, ME3102, ME5103, ME6104, MH5101, MM3102, MM5102"
-  },
-
-
-  {
-    date: "2026-09-24",
-    day: "Thursday",
-
-    morning: "CB2105, CH2102, CH5103, CS2103, CS4110/CS6101/MA5104, EE2102, HS2104, HS2114, MA4106/MA5106, PH4102, PH5105, PH5111, PH5113/PH6119",
-
-    evening: "CB3103, CB5102, CE3103, CE5102, CE5105, CE5109/CE6124, CE5112, CH3103, CH4109, CS3103, EC3103, EC5104, EC6101, EE3101, EE5103, HS3103, MA3103, ME3103, ME5106, MM3103, MM5103"
-  },
-
-
-  {
-    date: "2026-09-25",
-    day: "Friday",
-
-    morning: "CB2103, CE2103, CH2103, CH4104, CH5105, EC2103, EE1101, EE2103, EP2103, HS2103, MA001, MA2103, MA4110, ME1102, ME2101, MM2103, PH4104",
-
-    evening: "CB3104, CB4108, CB5103, CE3104, CE5103, CE5110/CE6120, CE5113, CH3104, CS3104, CS3105, CS4113, EC3104, EC5103, EE5102, EP3104, HS3104, MA3104, MA6106, ME3104, ME4103, ME5102, ME5105, ME5108, MM3104, MM4107, MM5104, PH4110"
-  },
-
-
-  {
-    date: "2026-09-26",
-    day: "Saturday",
-
-    morning: "CB2104/CH2105, CE2104, CH4105, CS2104, EE2101, EP2104, HS1101, HS2108, MA2104, MA4111, ME2104, MM2104, PH4105",
-
-    evening: "CB3105, CE6109, EC5116/EC5110, EE6103, EP3105, HS4118, HS4119, MA3105, ME3105"
-  },
-
-
-  {
-    date: "2026-09-27",
-    day: "Sunday",
-
-    morning: "CE1101, CE6128, CS2105, EC3105, HS4123, MA2105, MM2105, PH001",
-
-    evening: "CB4103, CB6105, CE4106, CE6130, CS6109, EC5113/EC5119, EE6104, EP3103, ME4105, ME4106, ME6109, ME6111"
-  },
-
-
-  {
-    date: "2026-09-28",
-    day: "Monday",
-
-    morning: "HS2115, HS4109",
-
-    evening: "CE6101, CE6125, CS4101/CS6103, EC4102, EC5114, EE6117, MA4103, ME4101, ME6102/ME4102, ME6106, ME6107, MM6101"
+  // Find a course's exam date + slot from the datesheet (single source of truth)
+  function endsemLookup(code){
+    for(const d of ENDSEM_FULL){
+      if(d.holiday) continue;
+      if(endsemTokens(d.morning).includes(code)) return { date:d.date, day:d.day, slot:ENDSEM_SLOTS.morning };
+      if(endsemTokens(d.evening).includes(code)) return { date:d.date, day:d.day, slot:ENDSEM_SLOTS.evening };
+    }
+    return null;
   }
-
-];
 
   let hssCode = null; 
   let PERSONAL_SCHEDULE = SCHEDULE.slice();
@@ -2094,7 +2040,7 @@ function sessionAttendanceWeight(s){
     const next = findNext();
     if(!next){
       heroContent.innerHTML = isBreakIso(isoDate(now))
-        ? `<div class="hero-empty">${breakLabel(isoDate(now))} — no classes or labs until ${BREAK_RESUME_LABEL}.</div>`
+        ? `<div class="hero-empty">${breakMessage(isoDate(now))}.</div>`
         : `<div class="hero-empty">No 2nd-year classes on the books. Enjoy the Day.</div>`;
       burette.style.display="none";
       return;
@@ -2105,7 +2051,7 @@ function sessionAttendanceWeight(s){
       : offsetDays>=7 ? nextDate.toLocaleDateString(undefined,{weekday:'short', day:'numeric', month:'short'})
       : DAY_NAMES[nextDate.getDay()];
     const breakBanner = isBreakIso(isoDate(now))
-      ? `<div class="break-banner">${breakLabel(isoDate(now))} — no classes or labs until ${BREAK_RESUME_LABEL}</div>` : "";
+      ? `<div class="break-banner">${breakMessage(isoDate(now))}</div>` : "";
 
     let targetDate;
     if(status==="ongoing"){
@@ -2212,7 +2158,7 @@ function sessionAttendanceWeight(s){
 
     if(list.length===0){
       if(isBreakIso(isoDate(dateForDow))){
-        wrap.innerHTML = `<div class="empty-state"><div class="glyph"></div>${breakLabel(isoDate(dateForDow))} — no classes or labs.<br>Classes resume ${BREAK_RESUME_LABEL}.</div>`;
+        wrap.innerHTML = `<div class="empty-state"><div class="glyph"></div>${breakLabel(isoDate(dateForDow))} — no classes or labs.<br>${breakResumeSentence(isoDate(dateForDow))}</div>`;
         return;
       }
       wrap.innerHTML = (dow===0||dow===6)
@@ -2538,10 +2484,21 @@ function sessionAttendanceWeight(s){
 
     const hasElective = hssCode && HSS_MAP[hssCode];
     const isMba = currentUser && isMbaRoll(currentUser.roll);
-    const items = MIDSEM_CORE.map(c=>({ code:c.code, day:c.day, date:c.date, note:c.note, isElective:false, isMba:false }));
-    if(hasElective) items.push({ code:hssCode, day:MIDSEM_HSS_DAY, date:MIDSEM_HSS_DATE, isElective:true, isMba:false });
-    if(isMba) items.push({ code:MBA_COURSE.code, day:MIDSEM_MBA_DAY, date:MIDSEM_MBA_DATE, isElective:false, isMba:true });
-    items.forEach(it=> it.delta = midsemDaysUntil(it.date));
+    const myCodes = ENDSEM_CORE.slice();
+    if(hasElective) myCodes.push(hssCode);
+    if(isMba) myCodes.push(MBA_COURSE.code);
+    const mineSet = new Set(myCodes);
+
+    const items = myCodes.map(code=>{
+      const hit = endsemLookup(code);
+      if(!hit) return null;
+      return {
+        code, day:hit.day, date:hit.date, slot:hit.slot,
+        isElective: !!(hasElective && code === hssCode),
+        isMba: !!(isMba && code === MBA_COURSE.code),
+        delta: midsemDaysUntil(hit.date)
+      };
+    }).filter(Boolean);
     items.sort((a,b)=> a.delta-b.delta);
     const next = items.find(c=>c.delta>=0) || items[items.length-1];
 
@@ -2551,8 +2508,7 @@ function sessionAttendanceWeight(s){
       <div class="exam-ticket ${it.isElective?'elective':''} ${it.isMba?'mba':''} ${isNext?'is-next':''}">
         <div class="exam-code">${it.code}</div>
         ${nameSpan(it.code,'exam-name')}
-        ${it.note ? `<div class="exam-flag">${escapeHtml(it.note)}</div>` : ''}
-        <div class="exam-time">${MIDSEM_SLOT_MORNING}</div>
+        <div class="exam-time">${it.slot}</div>
         <div class="exam-meta">
           <span>${it.day}, ${midsemFmtDate(it.date)}</span>
           <span class="exam-days">${midsemDaysLabel(it.delta)}</span>
@@ -2560,42 +2516,45 @@ function sessionAttendanceWeight(s){
       </div>`;
     }).join('');
 
-    const electiveEmptyNote = hasElective ? '' : `
+    const hssHit = endsemLookup('HS2110');
+    const electiveEmptyNote = (hasElective || !hssHit) ? '' : `
       <div class="exam-empty">
-        Set your HSS elective from the <b>HSS</b> button above to see its exam date here — HS2110, HS2111 and HS2112 all sit in the same ${MIDSEM_HSS_DAY}, ${midsemFmtDate(MIDSEM_HSS_DATE)} slot, ${MIDSEM_SLOT_MORNING}.
+        Set your HSS elective from the <b>HSS</b> button above to see its exam date here — HS2110, HS2111 and HS2112 all sit in the same ${hssHit.day}, ${midsemFmtDate(hssHit.date)} slot, ${hssHit.slot}.
       </div>`;
 
     const allDone = items.length > 0 && items.every(c=>c.delta<0);
     const bannerMsg = allDone
-      ? `All your mid-sem exams are done. Classes resume ${BREAK_RESUME_LABEL}.`
+      ? `All your end-sem exams are done. Enjoy the break!`
       : next
-        ? `<b>${next.code}</b> — ${next.day}, ${midsemFmtDate(next.date)}, 10:30&nbsp;am &middot; ${midsemDaysLabel(next.delta)}`
+        ? `<b>${next.code}</b> — ${next.day}, ${midsemFmtDate(next.date)}, ${next.slot.split(' – ')[0].replace(' ','&nbsp;')} &middot; ${midsemDaysLabel(next.delta)}`
         : '';
 
-    const coreCodes = MIDSEM_CORE.map(c=>c.code);
     const q = examSearchQuery;
 
     function highlightRow(codesStr){
       return codesStr.split(', ').map(tok=>{
-        const bare = tok.split('/')[0];
-        const isMine = coreCodes.includes(bare) || (hasElective && bare === hssCode);
+        const isMine = tok.split('/').some(part => mineSet.has(part));
         const matches = !q || tok.toUpperCase().includes(q);
         const cls = [isMine ? 'mine' : '', !matches ? 'dim' : ''].filter(Boolean).join(' ');
         return `<span class="${cls}">${escapeHtml(tok)}</span>`;
       }).join(', ');
     }
 
-    const fullRows = MIDSEM_FULL.map(d=>`
+    const fullRows = ENDSEM_FULL.map(d=> d.holiday ? `
       <div class="exam-day-block">
         <div class="exam-day-head">${d.day}<span>${midsemFmtDate(d.date)}</span></div>
-        <div class="exam-slot-row"><span class="exam-slot-lbl">Morning<span class="exam-slot-time">10:30–12:30</span></span><span class="exam-codes">${highlightRow(d.morning)}</span></div>
-        <div class="exam-slot-row"><span class="exam-slot-lbl">Evening<span class="exam-slot-time">3:30–5:30</span></span><span class="exam-codes">${highlightRow(d.evening)}</span></div>
+        <div style="padding:6px 0; color:var(--rose); font-weight:600;">${escapeHtml(d.holiday)}</div>
+      </div>` : `
+      <div class="exam-day-block">
+        <div class="exam-day-head">${d.day}<span>${midsemFmtDate(d.date)}</span></div>
+        <div class="exam-slot-row"><span class="exam-slot-lbl">Morning<span class="exam-slot-time">9:30–12:30</span></span><span class="exam-codes">${highlightRow(d.morning)}</span></div>
+        <div class="exam-slot-row"><span class="exam-slot-lbl">Evening<span class="exam-slot-time">3:00–6:00</span></span><span class="exam-codes">${highlightRow(d.evening)}</span></div>
       </div>`).join('');
 
     wrap.innerHTML = `
       <div class="exam-intro">
-        <div class="pyq-intro-title">Mid-Sem TimeTable</div>
-        <div class="pyq-intro-sub">20–28 September 2026</div>
+        <div class="pyq-intro-title">End-Sem TimeTable</div>
+        <div class="pyq-intro-sub">21–30 November 2026</div>
       </div>
       ${next ? `<div class="exam-banner"><span class="exam-banner-tag">${allDone ? 'Done' : 'Next up'}</span><span class="exam-banner-msg">${bannerMsg}</span></div>` : ''}
 
@@ -2603,7 +2562,7 @@ function sessionAttendanceWeight(s){
       <div class="exam-tickets">${tickets}</div>
       ${electiveEmptyNote}
 
-      <div class="section-label">Full week, both slots</div>
+      <div class="section-label">Full datesheet, both slots</div>
       <div class="exam-toggle-row">
         <button class="pyq-admin-link" id="examToggleBtn">${examSheetOpen ? 'Hide full datesheet' : 'Show full datesheet'}</button>
         <input type="text" id="examSearch" placeholder="Jump to a code, e.g. ME3104" value="${escapeHtml(examSearchQuery)}" />
@@ -3199,7 +3158,7 @@ function sessionAttendanceWeight(s){
     document.getElementById('dateLabel').innerHTML = `${main}<span class="rel">${rel}${relExtra}</span>`;
 
     if(list.length===0){
-      wrap.innerHTML = `<div class="empty-state" style="padding:24px;">${isBreakIso(isoDate(d)) ? breakLabel(isoDate(d))+' — no classes or labs. Classes resume '+BREAK_RESUME_LABEL+'.' : 'No sessions on this date.'}</div>` + editControls;
+      wrap.innerHTML = `<div class="empty-state" style="padding:24px;">${isBreakIso(isoDate(d)) ? breakLabel(isoDate(d))+' — no classes or labs. '+breakResumeSentence(isoDate(d)) : 'No sessions on this date.'}</div>` + editControls;
       bindDayEditControls(d);
       return;
     }
