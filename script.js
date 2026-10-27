@@ -125,7 +125,7 @@
     { day:1, start:tm(17,0), end:tm(17,55), code:"CB2103", type:"lecture", room:"R307" },
 
     // Tuesday
-    { day:2, start:tm(9,0),  end:tm(9,55),  code:"CB2105", type:"lecture", room:"R310" },
+    { day:2, start:tm(9,0),  end:tm(9,55),  code:"CB2105", type:"lecture", room:"R106" },
     { day:2, start:tm(10,0), end:tm(10,55), code:"CB2104", type:"lecture", room:"R102" },
     { day:2, start:tm(15,0), end:tm(16,55), code:"CB2101", type:"lecture", room:"R105" },
 
@@ -141,7 +141,7 @@
     { day:4, start:tm(16,0), end:tm(18,0),  code:"CB2104", type:"lecture", room:"LT001"  },
 
     // Friday
-    { day:5, start:tm(9,0),  end:tm(9,55),  code:"CB2105", type:"lecture", room:"R310" },
+    { day:5, start:tm(9,0),  end:tm(9,55),  code:"CB2105", type:"lecture", room:"R110" },
     { day:5, start:tm(15,0), end:tm(15,55), code:"CB2102", type:"lecture", room:"R102" },
  
   ].sort((a,b)=> a.day-b.day || a.start-b.start);
