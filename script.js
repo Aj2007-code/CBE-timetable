@@ -97,6 +97,7 @@
   function tm(h,m){ return h*60+m; }
 
   const SEMESTER_START = new Date(2026, 6, 28); // 28 Jul 2026 (Tue)
+  const LABS_OVER_FROM_ISO = "2026-11-13";
 
   // No-class periods: no classes / labs, no attendance counted.
   // Mid-sem exams (21-26 Sep) + break (27 Sep - 4 Oct) 2026, then End-sem exams (21-30 Nov) + semester break.
@@ -227,6 +228,7 @@
   function fluidLabSessionForDate(date, groupNum){
     if(!groupNum) return null;
     const iso = isoDate(date);
+    if(iso >= LABS_OVER_FROM_ISO) return null;
     const mySet = fluidLabSetOf(groupNum);
     const isExceptionWeek = isoDate(fluidLabMondayOf(date)) === isoDate(FLUID_LAB_ANCHOR_MONDAY);
 
@@ -1876,6 +1878,9 @@ function sessionAttendanceWeight(s){
     const dow = date.getDay();
     const iso = isoDate(date);
     let list = scheduleForDay(dow);
+      if(iso >= LABS_OVER_FROM_ISO){
+    list = list.filter(s => s.type !== "lab");
+  }
     if(iso >= CPC_RESHUFFLE_FROM_ISO){
       if(dow === 2){
         list = list.filter(s => !(s.code === "CB2104" && s.type === "lecture"));
